@@ -19,11 +19,10 @@ import com.morningalarm.dto.ringtone.RingtoneListResponseDto
 import com.morningalarm.dto.ringtone.ToggleRingtoneLikeResponseDto
 import com.morningalarm.server.bootstrap.AppConfig
 import com.morningalarm.server.bootstrap.ModuleDependencies
-import com.morningalarm.server.bootstrap.applicationModule
-import com.morningalarm.server.bootstrap.createModuleDependencies
+import com.morningalarm.server.testConfig
+import com.morningalarm.server.testApp
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -34,10 +33,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
-import io.ktor.server.testing.testApplication
-import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -45,14 +40,14 @@ import kotlin.test.assertTrue
 
 class RingtoneRoutesTest {
     @Test
-    fun `unauthorized request to client and admin ringtone lists returns 401`() = testApplicationWithDependencies { _, client ->
+    fun `unauthorized request to client and admin ringtone lists returns 401`() = testApp { _, client ->
         assertEquals(HttpStatusCode.Unauthorized, client.get(RingtoneRoutes.LIST).status)
         assertEquals(HttpStatusCode.Unauthorized, client.get(AdminRingtoneRoutes.LIST).status)
     }
 
     @Test
     fun `admin can create update toggle preview and delete ringtone through admin api`() =
-        testApplicationWithDependencies { dependencies, client ->
+        testApp { dependencies, client ->
             val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
 
             val createResponse = client.post(AdminRingtoneRoutes.CREATE) {
@@ -146,7 +141,7 @@ class RingtoneRoutesTest {
         }
 
     @Test
-    fun `non admin cannot access admin ringtone endpoints`() = testApplicationWithDependencies { dependencies, client ->
+    fun `non admin cannot access admin ringtone endpoints`() = testApp { dependencies, client ->
         val userToken = registerUser(dependencies, "user@example.com").bearerToken
 
         val listResponse = client.get(AdminRingtoneRoutes.LIST) {
@@ -175,7 +170,7 @@ class RingtoneRoutesTest {
     }
 
     @Test
-    fun `admin api requires admin secret header when hardened access is enabled`() = testApplicationWithDependencies(
+    fun `admin api requires admin secret header when hardened access is enabled`() = testApp(
         configOverride = { copy(adminAccessSecret = "top-secret") },
     ) { dependencies, client ->
         val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
@@ -192,7 +187,7 @@ class RingtoneRoutesTest {
     }
 
     @Test
-    fun `client api returns only active ringtones and includes like state`() = testApplicationWithDependencies { dependencies, client ->
+    fun `client api returns only active ringtones and includes like state`() = testApp { dependencies, client ->
         val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
         val userToken = registerUser(dependencies, "user@example.com").bearerToken
 
@@ -243,7 +238,7 @@ class RingtoneRoutesTest {
     }
 
     @Test
-    fun `inactive ringtone is hidden from client detail and like endpoints`() = testApplicationWithDependencies { dependencies, client ->
+    fun `inactive ringtone is hidden from client detail and like endpoints`() = testApp { dependencies, client ->
         val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
         val userToken = registerUser(dependencies, "user@example.com").bearerToken
         val inactiveRingtone = createAdminRingtone(client, adminToken, "Night Draft", isActive = false, isPremium = false)
@@ -260,7 +255,7 @@ class RingtoneRoutesTest {
     }
 
     @Test
-    fun `admin create validates absolute media urls`() = testApplicationWithDependencies { dependencies, client ->
+    fun `admin create validates absolute media urls`() = testApp { dependencies, client ->
         val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
 
         val response = client.post(AdminRingtoneRoutes.CREATE) {
@@ -292,42 +287,20 @@ class RingtoneRoutesTest {
     ): com.morningalarm.dto.admin.ringtone.AdminRingtoneDetailDto {
         val slug = title.lowercase().replace(' ', '-')
         return client.post(AdminRingtoneRoutes.CREATE) {
-        auth(adminToken)
-        contentType(ContentType.Application.Json)
-        setBody(
-            CreateAdminRingtoneRequestDto(
-                title = title,
-                description = "$title description",
-                imageUrl = "https://cdn.example.com/ringtones/$slug.jpg",
-                audioUrl = "https://cdn.example.com/ringtones/$slug.mp3",
-                durationSeconds = 60,
-                isActive = isActive,
-                isPremium = isPremium,
-            ),
-        )
+            auth(adminToken)
+            contentType(ContentType.Application.Json)
+            setBody(
+                CreateAdminRingtoneRequestDto(
+                    title = title,
+                    description = "$title description",
+                    imageUrl = "https://cdn.example.com/ringtones/$slug.jpg",
+                    audioUrl = "https://cdn.example.com/ringtones/$slug.mp3",
+                    durationSeconds = 60,
+                    isActive = isActive,
+                    isPremium = isPremium,
+                ),
+            )
         }.body<CreateAdminRingtoneResponseDto>().ringtone
-    }
-
-    private fun testApplicationWithDependencies(
-        configOverride: (AppConfig.() -> AppConfig) = { this },
-        block: suspend io.ktor.server.testing.ApplicationTestBuilder.(ModuleDependencies, HttpClient) -> Unit,
-    ) = testApplication {
-        val config = configOverride(testConfig(Files.createTempDirectory("morning-alarm-ringtone-test").toString()))
-        val dependencies = createModuleDependencies(config)
-        application {
-            applicationModule(config = config, dependencies = dependencies)
-        }
-        val client = createClient {
-            install(ContentNegotiation) {
-                json(
-                    Json {
-                        ignoreUnknownKeys = false
-                        explicitNulls = false
-                    },
-                )
-            }
-        }
-        block(dependencies, client)
     }
 
     private fun registerUser(dependencies: ModuleDependencies, email: String) = dependencies.authService.registerWithEmail(
@@ -343,31 +316,4 @@ class RingtoneRoutesTest {
         }
     }
 
-    private fun testConfig(dataDir: String): AppConfig = AppConfig(
-        devMode = true,
-        host = "127.0.0.1",
-        port = 8080,
-        publicUrl = null,
-        logPublicUrl = false,
-        mediaStorageDir = "$dataDir/media",
-        mediaPublicBaseUrl = "http://localhost:8080",
-        mediaMaxImageBytes = 1024 * 1024,
-        mediaMaxAudioBytes = 5 * 1024 * 1024,
-        firebaseBucketName = null,
-        firebaseCredentialsPath = null,
-        databaseUrl = "jdbc:h2:file:$dataDir/ringtone-db;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH",
-        databaseUser = "sa",
-        databasePassword = "",
-        databaseDriver = "org.h2.Driver",
-        databasePoolMaxSize = 4,
-        jwtSecret = "test-secret",
-        jwtIssuer = "test-issuer",
-        jwtAudience = "test-audience",
-        adminEmails = setOf("admin@example.com"),
-        adminBootstrapSecret = null,
-        adminAccessSecret = null,
-        accessTokenTtlSeconds = 24 * 60 * 60L,
-        refreshTokenTtlSeconds = 30 * 24 * 60 * 60L,
-        passwordResetTokenTtlSeconds = 60 * 60L,
-    )
 }

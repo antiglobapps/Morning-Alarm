@@ -23,6 +23,12 @@ npm run preview   # Preview production build locally
 
 Gradle integration: `./gradlew :web:build` delegates to `npm run build`.
 
+## CI
+
+- GitHub Actions runs web checks selectively when `web` files or CI workflow/scripts change.
+- The current web CI contract is `npm ci`, `npm run test --if-present`, and `npm run build`.
+- PRs targeting `release/*` always run the full repository suite, including web checks.
+
 ## Pages
 
 | Route | File | Layout | Purpose |

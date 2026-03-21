@@ -5,27 +5,20 @@ import com.morningalarm.dto.ApiError
 import com.morningalarm.dto.upload.MediaKindDto
 import com.morningalarm.dto.upload.UploadAudioResponseDto
 import com.morningalarm.dto.upload.UploadImageResponseDto
-import com.morningalarm.server.bootstrap.AppConfig
 import com.morningalarm.server.bootstrap.ModuleDependencies
-import com.morningalarm.server.bootstrap.applicationModule
-import com.morningalarm.server.bootstrap.createModuleDependencies
+import com.morningalarm.server.testConfig
+import com.morningalarm.server.testApp
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
-import io.ktor.serialization.kotlinx.json.json
-import io.ktor.server.testing.testApplication
-import kotlinx.serialization.json.Json
-import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -120,24 +113,10 @@ class AdminUploadRoutesTest {
 
     private fun testApplicationWithDependencies(
         block: suspend io.ktor.server.testing.ApplicationTestBuilder.(ModuleDependencies, HttpClient) -> Unit,
-    ) = testApplication {
-        val config = testConfig(Files.createTempDirectory("morning-alarm-upload-test").toString())
-        val dependencies = createModuleDependencies(config)
-        application {
-            applicationModule(config = config, dependencies = dependencies)
-        }
-        val client = createClient {
-            install(ContentNegotiation) {
-                json(
-                    Json {
-                        ignoreUnknownKeys = false
-                        explicitNulls = false
-                    },
-                )
-            }
-        }
-        block(dependencies, client)
-    }
+    ) = testApp(
+        configOverride = { copy(mediaMaxImageBytes = 64, mediaMaxAudioBytes = 8_192) },
+        block = block,
+    )
 
     private fun registerUser(dependencies: ModuleDependencies, email: String) = dependencies.authService.registerWithEmail(
         email = email,
@@ -183,34 +162,6 @@ class AdminUploadRoutesTest {
     private fun io.ktor.client.request.HttpRequestBuilder.auth(token: String) {
         header(HttpHeaders.Authorization, "Bearer $token")
     }
-
-    private fun testConfig(dataDir: String): AppConfig = AppConfig(
-        devMode = true,
-        host = "127.0.0.1",
-        port = 8080,
-        publicUrl = null,
-        logPublicUrl = false,
-        mediaStorageDir = "$dataDir/media",
-        mediaPublicBaseUrl = "http://localhost:8080",
-        mediaMaxImageBytes = 64,
-        mediaMaxAudioBytes = 8_192,
-        firebaseBucketName = null,
-        firebaseCredentialsPath = null,
-        databaseUrl = "jdbc:h2:file:$dataDir/upload-db;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH",
-        databaseUser = "sa",
-        databasePassword = "",
-        databaseDriver = "org.h2.Driver",
-        databasePoolMaxSize = 4,
-        jwtSecret = "test-secret",
-        jwtIssuer = "test-issuer",
-        jwtAudience = "test-audience",
-        adminEmails = setOf("admin@example.com"),
-        adminBootstrapSecret = null,
-        adminAccessSecret = null,
-        accessTokenTtlSeconds = 24 * 60 * 60L,
-        refreshTokenTtlSeconds = 30 * 24 * 60 * 60L,
-        passwordResetTokenTtlSeconds = 60 * 60L,
-    )
 
     private fun createWav(durationMillis: Int): ByteArray {
         val sampleRate = 8_000

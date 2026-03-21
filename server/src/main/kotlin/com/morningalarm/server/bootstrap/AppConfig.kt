@@ -32,7 +32,22 @@ data class AppConfig(
     val accessTokenTtlSeconds: Long,
     val refreshTokenTtlSeconds: Long,
     val passwordResetTokenTtlSeconds: Long,
-)
+    /** Max failed admin login attempts within the rate limit window before blocking. */
+    val adminLoginMaxAttempts: Int,
+    /** Sliding window size in seconds for admin login brute-force protection. */
+    val adminLoginWindowSeconds: Long,
+) {
+    init {
+        if (!devMode) {
+            require(jwtSecret != "dev-only-jwt-secret-change-me") {
+                "SERVER_JWT_SECRET must be set to a secure value in prod mode"
+            }
+            requireNotNull(adminAccessSecret) {
+                "SERVER_ADMIN_ACCESS_SECRET must be set in prod mode"
+            }
+        }
+    }
+}
 
 object AppConfigLoader {
     private const val H2_DEV_URL =
@@ -86,6 +101,8 @@ object AppConfigLoader {
             accessTokenTtlSeconds = 24 * 60 * 60L,
             refreshTokenTtlSeconds = 30 * 24 * 60 * 60L,
             passwordResetTokenTtlSeconds = 60 * 60L,
+            adminLoginMaxAttempts = env["SERVER_ADMIN_LOGIN_MAX_ATTEMPTS"]?.toIntOrNull() ?: 5,
+            adminLoginWindowSeconds = env["SERVER_ADMIN_LOGIN_WINDOW_SECONDS"]?.toLongOrNull() ?: 300L,
         )
     }
 }

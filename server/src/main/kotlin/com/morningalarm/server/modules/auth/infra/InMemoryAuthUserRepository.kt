@@ -26,7 +26,13 @@ class InMemoryAuthUserRepository : AuthUserRepository {
 
     override fun findById(userId: String): AuthUser? = usersById[userId]
 
+    override fun countUsers(): Long = usersById.size.toLong()
+
     override fun upsertUser(user: AuthUser): AuthUser {
+        val existing = usersById[user.id]
+        if (existing != null && existing.email != user.email) {
+            existing.email?.let { userIdByEmail.remove(it) }
+        }
         usersById[user.id] = user
         user.email?.let { userIdByEmail[it] = user.id }
         user.socialAccounts.forEach { account ->
@@ -49,6 +55,10 @@ class InMemoryAuthUserRepository : AuthUserRepository {
 
     override fun consumeRefreshToken(token: String): RefreshTokenRecord? {
         return refreshTokens.remove(token)
+    }
+
+    override fun revokeAllRefreshTokens(userId: String) {
+        refreshTokens.values.removeIf { it.userId == userId }
     }
 
     private fun socialKey(provider: SocialProvider, externalSubject: String): String {

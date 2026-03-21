@@ -4,6 +4,7 @@ import com.morningalarm.api.admin.upload.AdminUploadRoutes
 import com.morningalarm.server.modules.media.application.AdminMediaService
 import com.morningalarm.server.modules.media.domain.MediaKind
 import com.morningalarm.server.modules.media.domain.MediaUpload
+import com.morningalarm.server.shared.auth.currentAuthPrincipal
 import com.morningalarm.server.shared.auth.requireAdmin
 import com.morningalarm.server.shared.errors.NotFoundException
 import com.morningalarm.server.shared.errors.ValidationException
@@ -23,14 +24,16 @@ import io.ktor.utils.io.jvm.javaio.toInputStream
 fun Route.configureAdminUploadRoutes(adminMediaService: AdminMediaService, adminAccessSecret: String? = null) {
     post(AdminUploadRoutes.IMAGE) {
         call.requireAdmin(adminAccessSecret)
+        val principal = call.currentAuthPrincipal()
         val upload = call.receiveSingleFileUpload()
-        call.respond(HttpStatusCode.Created, adminMediaService.uploadImage(upload).toImageUploadResponseDto())
+        call.respond(HttpStatusCode.Created, adminMediaService.uploadImage(upload, principal.userId).toImageUploadResponseDto())
     }
 
     post(AdminUploadRoutes.AUDIO) {
         call.requireAdmin(adminAccessSecret)
+        val principal = call.currentAuthPrincipal()
         val upload = call.receiveSingleFileUpload()
-        call.respond(HttpStatusCode.Created, adminMediaService.uploadAudio(upload).toAudioUploadResponseDto())
+        call.respond(HttpStatusCode.Created, adminMediaService.uploadAudio(upload, principal.userId).toAudioUploadResponseDto())
     }
 }
 

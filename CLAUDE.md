@@ -48,9 +48,11 @@ Key topics covered in [AGENTS.md](AGENTS.md):
 ./gradlew :android:assembleDebug
 ./gradlew :android:testDebugUnitTest
 
-# Server
+# Server (dev mode — embedded H2, no PostgreSQL needed)
 ./gradlew :server:run
 ./gradlew :server:test
+# Server (prod mode — requires PostgreSQL)
+SERVER_DEV_MODE=false ./gradlew :server:run
 ./gradlew :server:runProd -PprodHost=... -PprodPort=... -PprodPublicUrl=...
 
 # Shared DTOs/contracts

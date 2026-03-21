@@ -6,16 +6,20 @@ import com.morningalarm.server.modules.auth.domain.PasswordResetTokenRecord
 import com.morningalarm.server.modules.auth.domain.RefreshTokenRecord
 import com.morningalarm.server.modules.auth.domain.SocialProvider
 import com.morningalarm.server.modules.auth.domain.UserRole
+import com.morningalarm.server.modules.user.domain.BusinessUser
 
 interface AuthUserRepository {
     fun findByEmail(email: String): AuthUser?
     fun findBySocialAccount(provider: SocialProvider, externalSubject: String): AuthUser?
     fun findById(userId: String): AuthUser?
+    fun countUsers(): Long
     fun upsertUser(user: AuthUser): AuthUser
     fun savePasswordResetToken(record: PasswordResetTokenRecord)
     fun consumePasswordResetToken(token: String): PasswordResetTokenRecord?
     fun saveRefreshToken(record: RefreshTokenRecord)
     fun consumeRefreshToken(token: String): RefreshTokenRecord?
+    /** Invalidates all active refresh tokens for the given user (e.g. after a password reset). */
+    fun revokeAllRefreshTokens(userId: String)
 }
 
 interface AuthEmailGateway {
@@ -27,6 +31,7 @@ interface TokenFactory {
     fun newRingtoneId(): String
     fun newRefreshToken(): String
     fun newPasswordResetToken(): String
+    fun newTemporaryPassword(): String
     fun stableSubject(rawToken: String): String
 }
 
@@ -45,8 +50,8 @@ interface AccessTokenService {
 }
 
 interface BusinessUserRepository {
-    fun findById(id: String): com.morningalarm.server.modules.user.domain.BusinessUser?
-    fun findByEmail(email: String): com.morningalarm.server.modules.user.domain.BusinessUser?
-    fun ensureUser(id: String, email: String?, displayName: String?, role: UserRole): com.morningalarm.server.modules.user.domain.BusinessUser
+    fun findById(id: String): BusinessUser?
+    fun findByEmail(email: String): BusinessUser?
+    fun ensureUser(id: String, email: String?, displayName: String?, role: UserRole): BusinessUser
     fun updateRole(userId: String, role: UserRole)
 }

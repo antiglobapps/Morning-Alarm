@@ -54,6 +54,7 @@ Notes:
 - JSON is handled by Kotlinx Serialization.
 - Errors are normalized to `ApiError` (from `shared` module).
 - Request ID is enforced by CallId.
+- Local server builds use a Java 21 Gradle toolchain.
 
 ---
 
@@ -62,6 +63,7 @@ Notes:
 Config model: `server/bootstrap/AppConfig.kt`
 
 Environment variables:
+- `SERVER_DEV_MODE` (boolean, optional; default `true`; when enabled uses embedded H2 database instead of PostgreSQL)
 - `SERVER_HOST` (string)
 - `SERVER_PORT` (int)
 - `PORT` (int, fallback when `SERVER_PORT` is not set)
@@ -71,22 +73,36 @@ Environment variables:
 - `SERVER_MEDIA_PUBLIC_BASE_URL` (string, optional; absolute base URL used in generated media links)
 - `SERVER_MEDIA_MAX_IMAGE_BYTES` (long, optional; default `5242880`)
 - `SERVER_MEDIA_MAX_AUDIO_BYTES` (long, optional; default `52428800`)
-- `SERVER_DB_URL` (string, optional; default `jdbc:postgresql://localhost:5432/morning_alarm`)
-- `SERVER_DB_USER` (string, optional; default `morning_alarm`)
-- `SERVER_DB_PASSWORD` (string, optional; default `morning_alarm`)
-- `SERVER_DB_DRIVER` (string, optional; default `org.postgresql.Driver`)
+- `SERVER_DB_URL` (string, optional; dev default: H2 file at `./server-data/dev-db`; prod default: `jdbc:postgresql://localhost:5432/morning_alarm`)
+- `SERVER_DB_USER` (string, optional; dev default: `sa`; prod default: `morning_alarm`)
+- `SERVER_DB_PASSWORD` (string, optional; dev default: empty; prod default: `morning_alarm`)
+- `SERVER_DB_DRIVER` (string, optional; dev default: `org.h2.Driver`; prod default: `org.postgresql.Driver`)
 - `SERVER_DB_POOL_MAX_SIZE` (int, optional; default `10`)
 - `SERVER_JWT_SECRET` (string, optional; default dev-only value, replace in non-dev environments)
 - `SERVER_JWT_ISSUER` (string, optional; default `morning-alarm-server`)
 - `SERVER_JWT_AUDIENCE` (string, optional; default `morning-alarm-app`)
 - `SERVER_ADMIN_EMAILS` (comma-separated string, optional; users with these emails get `ADMIN` role on creation)
+- `SERVER_ADMIN_LOGIN_MAX_ATTEMPTS` (int, optional; default `5`; max failed admin login attempts before rate-limiting)
+- `SERVER_ADMIN_LOGIN_WINDOW_SECONDS` (long, optional; default `300`; sliding window for brute-force tracking)
+- In dev mode, if `SERVER_ADMIN_EMAILS` is not provided, the shared default local admin email is enabled automatically; if it is provided, the shared default dev admin email is still added.
+- In dev mode, if `SERVER_ADMIN_ACCESS_SECRET` is not provided, the shared default local admin secret is used automatically.
+- Auth login/refresh/reset flows preserve an already assigned business role; the email allowlist only affects first-time business user creation.
+- Canonical secret identifiers and ownership rules are registered centrally in `docs/configuration/secrets.md` and `config/secrets.catalog.toml`.
+
+Dev mode run (default, no PostgreSQL needed):
+```
+./gradlew :server:run
+```
+This starts the server with embedded H2 database stored in `./server-data/dev-db`.
+Data persists between restarts. No Docker or PostgreSQL required.
+If the auth database is empty, startup auto-creates the shared default dev admin account with a stable password for desktop-admin login.
 
 Production run task:
 ```
 ./gradlew :server:runProd -PprodHost=... -PprodPort=... -PprodPublicUrl=...
 ```
 
-Local Docker run:
+Local Docker run (PostgreSQL):
 ```
 docker compose up --build
 ```
@@ -104,6 +120,7 @@ Database migrations policy:
 - Default: JSON responses using Kotlinx Serialization.
 - Use DTO classes from the `shared` module (shared with clients).
 - Ktor `ContentNegotiation` handles serialization automatically.
+- Admin audio upload responses include `UploadedMediaDto.durationSeconds` for WAV and MP3 files when the duration can be detected.
 
 ### 4.2 Error Responses (Standardized)
 All errors must map to `ApiError` (from `shared`):
@@ -234,6 +251,9 @@ Minimum coverage for each endpoint:
 
 It is not acceptable to add only one happy-path test for a new endpoint. Tests must describe the full behavioral contract of the server call.
 
+Client integration jobs in CI may also boot the real server in dev mode via `scripts/ci/`.
+Those jobs must wait for `/health/ready` and prepare their fixtures through server APIs instead of direct database writes.
+
 ## 10.1) OpenAPI / Swagger Rule
 
 The server must expose API documentation in web form through Swagger UI.
@@ -330,6 +350,59 @@ Like behavior:
 - Client list/detail responses must include both `likesCount` and `isLikedByUser`.
 - Inactive ringtones are hidden from client list/detail/like endpoints.
 - Admin list/detail responses include full content-management state and counts.
+
+## 14) Security — Audit Logging, Brute-Force Protection, Recovery
+
+### Audit Logging
+
+All key admin and recovery actions are logged to a dedicated SLF4J logger named `audit`.
+
+Implementation: `server/shared/audit/`
+- `AuditEvent` — sealed class of all loggable event types.
+- `AuditLogger` — port interface.
+- `Slf4jAuditLogger` — production implementation (WARN level for security events, INFO for operational events).
+- `NoOpAuditLogger` — discards all events (use in tests when needed).
+
+Events logged:
+- `ADMIN_CREATED` — admin account created via bootstrap CLI.
+- `ADMIN_PROMOTED` — existing user promoted to ADMIN role.
+- `ADMIN_LOGIN_SUCCESS` — admin successfully authenticated.
+- `ADMIN_LOGIN_FAILURE` — admin login failed (wrong secret, wrong password, wrong role).
+- `PASSWORD_RESET_REQUESTED` — password reset email triggered.
+- `PASSWORD_RESET_CONFIRMED` — password changed via reset token.
+- `SESSIONS_REVOKED` — all refresh tokens invalidated for a user.
+- `RINGTONE_CREATED/UPDATED/DELETED/ACTIVE_TOGGLED/PREMIUM_TOGGLED` — ringtone CRUD by admin.
+- `MEDIA_UPLOADED` — image or audio file uploaded by admin.
+
+### Admin Login Brute-Force Protection
+
+Implementation: `server/shared/ratelimit/BruteForceProtector`
+
+Tracks failed admin login attempts per email within a sliding time window.
+After `maxAttempts` failures within `windowSeconds`, further attempts return HTTP 429 `too_many_requests`.
+Successful login clears the failure history for that email.
+
+Configuration:
+- `SERVER_ADMIN_LOGIN_MAX_ATTEMPTS` (int, optional; default `5`)
+- `SERVER_ADMIN_LOGIN_WINDOW_SECONDS` (long, optional; default `300`)
+
+Error type: `TooManyRequestsException` → HTTP 429.
+
+### Session Revocation on Password Reset
+
+`AuthService.confirmPasswordReset` calls `AuthUserRepository.revokeAllRefreshTokens(userId)` before issuing a new session.
+This ensures stolen refresh tokens cannot be reused after a password reset.
+
+### Recovery Procedures
+
+Full recovery runbook: `docs/configuration/recovery.md`
+
+Covers:
+- Password reset for admin accounts
+- Promoting users to ADMIN via CLI
+- Rotating `SERVER_ADMIN_ACCESS_SECRET` and `SERVER_JWT_SECRET`
+- Full admin lockout recovery
+- Incident response checklist
 
 ## 13) Media Upload Module
 

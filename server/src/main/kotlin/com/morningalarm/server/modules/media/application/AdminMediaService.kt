@@ -4,14 +4,17 @@ import com.morningalarm.server.modules.media.application.ports.MediaStorage
 import com.morningalarm.server.modules.media.domain.MediaKind
 import com.morningalarm.server.modules.media.domain.MediaUpload
 import com.morningalarm.server.modules.media.domain.StoredMedia
+import com.morningalarm.server.shared.audit.AuditEvent
+import com.morningalarm.server.shared.audit.AuditLogger
 import com.morningalarm.server.shared.errors.ValidationException
 
 class AdminMediaService(
     private val mediaStorage: MediaStorage,
     private val maxImageBytes: Long,
     private val maxAudioBytes: Long,
+    private val auditLogger: AuditLogger,
 ) {
-    fun uploadImage(upload: MediaUpload): StoredMedia {
+    fun uploadImage(upload: MediaUpload, adminId: String): StoredMedia {
         validateUpload(
             upload = upload,
             expectedKind = MediaKind.IMAGE,
@@ -19,10 +22,12 @@ class AdminMediaService(
             contentTypePrefix = "image/",
             contentTypeMessage = "Image upload requires an image/* content type",
         )
-        return mediaStorage.store(MediaKind.IMAGE, upload)
+        val stored = mediaStorage.store(MediaKind.IMAGE, upload)
+        auditLogger.log(AuditEvent.MediaUploaded(kind = "image", fileName = upload.fileName, sizeBytes = upload.bytes.size.toLong(), adminId = adminId))
+        return stored
     }
 
-    fun uploadAudio(upload: MediaUpload): StoredMedia {
+    fun uploadAudio(upload: MediaUpload, adminId: String): StoredMedia {
         validateUpload(
             upload = upload,
             expectedKind = MediaKind.AUDIO,
@@ -30,7 +35,10 @@ class AdminMediaService(
             contentTypePrefix = "audio/",
             contentTypeMessage = "Audio upload requires an audio/* content type",
         )
-        return mediaStorage.store(MediaKind.AUDIO, upload)
+        val storedMedia = mediaStorage.store(MediaKind.AUDIO, upload)
+        val durationSeconds = AudioDurationDetector.detectSeconds(upload) ?: storedMedia.durationSeconds
+        auditLogger.log(AuditEvent.MediaUploaded(kind = "audio", fileName = upload.fileName, sizeBytes = upload.bytes.size.toLong(), adminId = adminId))
+        return storedMedia.copy(durationSeconds = durationSeconds)
     }
 
     fun resolveMedia(kind: MediaKind, fileName: String) = mediaStorage.resolve(kind, fileName)

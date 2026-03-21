@@ -25,6 +25,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      SERVER_DEV_MODE: "false"
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 8080
       SERVER_PUBLIC_URL: http://localhost:8080
@@ -33,6 +34,10 @@ services:
       SERVER_DB_PASSWORD: morning_alarm
       SERVER_DB_DRIVER: org.postgresql.Driver
       SERVER_DB_POOL_MAX_SIZE: 10
+      # Required in prod mode — replace with real values before deploying
+      SERVER_JWT_SECRET: "${SERVER_JWT_SECRET:?SERVER_JWT_SECRET must be set}"
+      SERVER_ADMIN_ACCESS_SECRET: "${SERVER_ADMIN_ACCESS_SECRET:?SERVER_ADMIN_ACCESS_SECRET must be set}"
+      SERVER_ADMIN_BOOTSTRAP_SECRET: "${SERVER_ADMIN_BOOTSTRAP_SECRET:-}"
     ports:
       - "8080:8080"
     healthcheck:

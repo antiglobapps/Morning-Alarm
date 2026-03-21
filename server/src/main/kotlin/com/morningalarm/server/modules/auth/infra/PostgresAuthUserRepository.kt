@@ -14,21 +14,13 @@ class PostgresAuthUserRepository(
 ) : AuthUserRepository {
     override fun findByEmail(email: String): AuthUser? {
         return dataSource.connection.use { connection ->
-            connection.prepareStatement(
-                """
-                SELECT id, email, display_name, password_hash
-                FROM auth_users
-                WHERE email = ?
-                """.trimIndent(),
+            val userId = connection.prepareStatement(
+                "SELECT id FROM auth_users WHERE email = ?",
             ).use { statement ->
                 statement.setString(1, email)
-                statement.executeQuery().use { resultSet ->
-                    if (!resultSet.next()) {
-                        return@use null
-                    }
-                    loadUser(connection, resultSet.getString("id"))
-                }
-            }
+                statement.executeQuery().use { rs -> if (rs.next()) rs.getString("id") else null }
+            } ?: return null
+            loadUser(connection, userId)
         }
     }
 
@@ -56,6 +48,16 @@ class PostgresAuthUserRepository(
     override fun findById(userId: String): AuthUser? {
         return dataSource.connection.use { connection ->
             loadUser(connection, userId)
+        }
+    }
+
+    override fun countUsers(): Long {
+        return dataSource.connection.use { connection ->
+            connection.prepareStatement("SELECT COUNT(*) FROM auth_users").use { statement ->
+                statement.executeQuery().use { resultSet ->
+                    if (resultSet.next()) resultSet.getLong(1) else 0L
+                }
+            }
         }
     }
 
@@ -184,6 +186,17 @@ class PostgresAuthUserRepository(
                 throw error
             } finally {
                 connection.autoCommit = true
+            }
+        }
+    }
+
+    override fun revokeAllRefreshTokens(userId: String) {
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                "DELETE FROM auth_refresh_tokens WHERE user_id = ?",
+            ).use { statement ->
+                statement.setString(1, userId)
+                statement.executeUpdate()
             }
         }
     }

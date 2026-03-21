@@ -48,6 +48,26 @@
 - OpenAPI validation
 - сборку desktop-admin
 - сборку web
+- тесты и сборку standalone `design-app`
+
+## Текущая реализация
+
+GitHub Actions workflow находится в `.github/workflows/ci.yml`.
+
+Он запускается:
+- на каждом `pull_request`
+- на `push` в `main`
+- на `push` в `release/*`
+
+Workflow проверяет:
+- path-based selective CI для измененных модулей
+- полный suite для `pull_request` в `release/*`
+- `./gradlew :shared:check :server:check` и отсутствие незакоммиченных изменений в OpenAPI artifacts после server checks
+- `desktop-admin`: isolated local dev server + live smoke test against real admin API + `./gradlew :desktop-admin:check`
+- `web`: `npm ci`, `npm run test --if-present`, `npm run build`
+- `design-app`: `npm ci`, `npm run test --if-present`, `npm run build`
+
+Для server-driven клиентских проверок каждый клиентский job поднимает собственный локальный dev server, ждет `/health/ready` и заполняет данные через API самого сервера, а не через прямые DB-хуки.
 
 ## Результат шага
 

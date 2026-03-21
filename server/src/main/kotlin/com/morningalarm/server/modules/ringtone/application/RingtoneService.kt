@@ -1,16 +1,21 @@
 package com.morningalarm.server.modules.ringtone.application
 
+import com.morningalarm.server.modules.auth.application.ports.Clock
 import com.morningalarm.server.modules.auth.application.ports.TokenFactory
 import com.morningalarm.server.modules.ringtone.application.ports.RingtoneRepository
 import com.morningalarm.server.modules.ringtone.domain.Ringtone
 import com.morningalarm.server.modules.ringtone.domain.RingtoneLikeToggleResult
 import com.morningalarm.server.modules.ringtone.domain.RingtoneView
+import com.morningalarm.server.shared.audit.AuditEvent
+import com.morningalarm.server.shared.audit.AuditLogger
 import com.morningalarm.server.shared.errors.NotFoundException
 import com.morningalarm.server.shared.errors.ValidationException
 
 class RingtoneService(
     private val ringtoneRepository: RingtoneRepository,
     private val tokenFactory: TokenFactory,
+    private val auditLogger: AuditLogger,
+    private val clock: Clock,
 ) {
     fun list(userId: String): List<RingtoneView> = ringtoneRepository.listForUser(userId)
 
@@ -53,7 +58,9 @@ class RingtoneService(
             createdByAdminId = requireAdminUserId(adminUserId),
             updatedByAdminId = adminUserId,
         )
-        return ringtoneRepository.create(ringtone).toAdminView()
+        val saved = ringtoneRepository.create(ringtone)
+        auditLogger.log(AuditEvent.RingtoneCreated(ringtoneId = ringtone.id, title = ringtone.title, adminId = adminUserId))
+        return saved.toAdminView(likesCount = 0)
     }
 
     fun update(
@@ -84,37 +91,46 @@ class RingtoneService(
             createdByAdminId = existing.ringtone.createdByAdminId,
             updatedByAdminId = requireAdminUserId(adminUserId),
         )
-        return (ringtoneRepository.update(ringtone)
-            ?: throw NotFoundException("Ringtone not found: $ringtoneId")).toAdminView()
+        val saved = ringtoneRepository.update(ringtone)
+            ?: throw NotFoundException("Ringtone not found: $ringtoneId")
+        auditLogger.log(AuditEvent.RingtoneUpdated(ringtoneId = ringtoneId, title = ringtone.title, adminId = adminUserId))
+        return saved.toAdminView(likesCount = existing.likesCount)
     }
 
     fun toggleActive(adminUserId: String, ringtoneId: String): RingtoneView {
-        val existing = detailForAdmin(ringtoneId).ringtone
-        return ringtoneRepository.update(
-            existing.copy(
-                isActive = !existing.isActive,
+        val existingView = detailForAdmin(ringtoneId)
+        val saved = ringtoneRepository.update(
+            existingView.ringtone.copy(
+                isActive = !existingView.ringtone.isActive,
                 updatedAtEpochSeconds = nowEpochSeconds(),
                 updatedByAdminId = requireAdminUserId(adminUserId),
             ),
-        )?.toAdminView() ?: throw NotFoundException("Ringtone not found: $ringtoneId")
+        ) ?: throw NotFoundException("Ringtone not found: $ringtoneId")
+        val view = saved.toAdminView(likesCount = existingView.likesCount)
+        auditLogger.log(AuditEvent.RingtoneActiveToggled(ringtoneId = ringtoneId, isActive = view.ringtone.isActive, adminId = adminUserId))
+        return view
     }
 
     fun togglePremium(adminUserId: String, ringtoneId: String): RingtoneView {
-        val existing = detailForAdmin(ringtoneId).ringtone
-        return ringtoneRepository.update(
-            existing.copy(
-                isPremium = !existing.isPremium,
+        val existingView = detailForAdmin(ringtoneId)
+        val saved = ringtoneRepository.update(
+            existingView.ringtone.copy(
+                isPremium = !existingView.ringtone.isPremium,
                 updatedAtEpochSeconds = nowEpochSeconds(),
                 updatedByAdminId = requireAdminUserId(adminUserId),
             ),
-        )?.toAdminView() ?: throw NotFoundException("Ringtone not found: $ringtoneId")
+        ) ?: throw NotFoundException("Ringtone not found: $ringtoneId")
+        val view = saved.toAdminView(likesCount = existingView.likesCount)
+        auditLogger.log(AuditEvent.RingtonePremiumToggled(ringtoneId = ringtoneId, isPremium = view.ringtone.isPremium, adminId = adminUserId))
+        return view
     }
 
-    fun delete(ringtoneId: String) {
+    fun delete(ringtoneId: String, adminUserId: String) {
         requireRingtoneId(ringtoneId)
         if (!ringtoneRepository.delete(ringtoneId)) {
             throw NotFoundException("Ringtone not found: $ringtoneId")
         }
+        auditLogger.log(AuditEvent.RingtoneDeleted(ringtoneId = ringtoneId, adminId = adminUserId))
     }
 
     fun toggleLike(userId: String, ringtoneId: String): RingtoneLikeToggleResult {
@@ -159,11 +175,11 @@ class RingtoneService(
         return adminUserId
     }
 
-    private fun Ringtone.toAdminView(): RingtoneView = RingtoneView(
+    private fun Ringtone.toAdminView(likesCount: Int = 0): RingtoneView = RingtoneView(
         ringtone = this,
-        likesCount = ringtoneRepository.findForAdmin(id)?.likesCount ?: 0,
+        likesCount = likesCount,
         isLikedByUser = false,
     )
 
-    private fun nowEpochSeconds(): Long = System.currentTimeMillis() / 1000L
+    private fun nowEpochSeconds(): Long = clock.epochSeconds()
 }

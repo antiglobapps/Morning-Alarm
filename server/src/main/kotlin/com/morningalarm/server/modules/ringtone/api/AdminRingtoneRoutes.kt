@@ -91,8 +91,9 @@ fun Route.configureAdminRingtoneRoutes(ringtoneService: RingtoneService, adminAc
 
     delete(AdminRingtoneRoutes.DELETE) {
         call.requireAdmin(adminAccessSecret)
+        val principal = call.currentAuthPrincipal()
         val ringtoneId = call.parameters["ringtoneId"].orEmpty()
-        ringtoneService.delete(ringtoneId)
+        ringtoneService.delete(ringtoneId, principal.userId)
         call.respond(HttpStatusCode.OK, DeleteAdminRingtoneResponseDto(ringtoneId, true))
     }
 

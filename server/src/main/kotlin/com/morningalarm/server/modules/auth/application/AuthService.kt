@@ -14,15 +14,24 @@ import com.morningalarm.server.modules.auth.domain.RefreshTokenRecord
 import com.morningalarm.server.modules.auth.domain.SocialAccount
 import com.morningalarm.server.modules.auth.domain.SocialProvider
 import com.morningalarm.server.modules.auth.domain.UserRole
+import com.morningalarm.server.shared.audit.AuditEvent
+import com.morningalarm.server.shared.audit.AuditLogger
 import com.morningalarm.server.shared.errors.ConflictException
 import com.morningalarm.server.shared.errors.ForbiddenException
 import com.morningalarm.server.shared.errors.UnauthorizedException
 import com.morningalarm.server.shared.errors.ValidationException
+import com.morningalarm.server.shared.ratelimit.BruteForceProtector
 
 data class AdminBootstrapResult(
     val userId: String,
     val email: String,
     val temporaryPassword: String,
+)
+
+data class DevAdminBootstrapResult(
+    val userId: String,
+    val email: String,
+    val password: String,
 )
 
 class AuthService(
@@ -37,6 +46,8 @@ class AuthService(
     private val accessTokenTtlSeconds: Long,
     private val refreshTokenTtlSeconds: Long,
     private val passwordResetTokenTtlSeconds: Long,
+    private val auditLogger: AuditLogger,
+    private val adminLoginBruteForce: BruteForceProtector? = null,
 ) {
     /**
      * Creates the first admin account directly on the server side.
@@ -48,7 +59,7 @@ class AuthService(
             throw ConflictException("User with this email already exists")
         }
 
-        val temporaryPassword = "adm_${tokenFactory.newPasswordResetToken().removePrefix("rst_").take(16)}"
+        val temporaryPassword = tokenFactory.newTemporaryPassword()
         val user = AuthUser(
             id = tokenFactory.newUserId(),
             email = normalizedEmail,
@@ -64,10 +75,52 @@ class AuthService(
             role = UserRole.ADMIN,
         )
 
+        auditLogger.log(AuditEvent.AdminCreated(adminId = user.id, email = normalizedEmail))
+
         return AdminBootstrapResult(
             userId = user.id,
             email = normalizedEmail,
             temporaryPassword = temporaryPassword,
+        )
+    }
+
+    /**
+     * Creates a predictable local admin only for empty dev databases.
+     * The password is stable on purpose so local clients can prefill it.
+     */
+    fun createDevAdminIfDatabaseEmpty(
+        email: String,
+        password: String,
+        displayName: String? = null,
+    ): DevAdminBootstrapResult? {
+        val normalizedEmail = normalizeEmail(email)
+        validatePassword(password)
+
+        if (authUserRepository.countUsers() > 0) {
+            return null
+        }
+
+        val user = AuthUser(
+            id = tokenFactory.newUserId(),
+            email = normalizedEmail,
+            displayName = displayName?.trim()?.takeIf { it.isNotEmpty() },
+            passwordHash = passwordHasher.hash(password),
+            socialAccounts = emptySet(),
+        )
+        authUserRepository.upsertUser(user)
+        businessUserRepository.ensureUser(
+            id = user.id,
+            email = user.email,
+            displayName = user.displayName,
+            role = UserRole.ADMIN,
+        )
+
+        auditLogger.log(AuditEvent.AdminCreated(adminId = user.id, email = normalizedEmail))
+
+        return DevAdminBootstrapResult(
+            userId = user.id,
+            email = normalizedEmail,
+            password = password,
         )
     }
 
@@ -88,24 +141,50 @@ class AuthService(
         if (businessUser.role != UserRole.ADMIN) {
             businessUserRepository.updateRole(authUser.id, UserRole.ADMIN)
         }
+
+        auditLogger.log(AuditEvent.AdminPromoted(adminId = authUser.id, email = normalizedEmail))
+
         return authUser.id
     }
 
     /**
      * Admin login: standard email/password check + admin access secret verification.
      * Returns session only if user has ADMIN role and the admin secret matches.
+     * Applies brute-force rate limiting per email when [adminLoginBruteForce] is configured.
      */
     fun adminLogin(email: String, password: String, adminSecret: String, requiredAdminSecret: String?): AuthSession {
+        val normalizedEmail = normalizeEmail(email)
+
+        adminLoginBruteForce?.checkBlocked(normalizedEmail)
+
         if (requiredAdminSecret.isNullOrBlank()) {
+            val reason = "Admin login not configured"
+            auditLogger.log(AuditEvent.AdminLoginFailure(email = normalizedEmail, reason = reason))
             throw ForbiddenException("Admin login is not configured (SERVER_ADMIN_ACCESS_SECRET not set)")
         }
         if (adminSecret != requiredAdminSecret) {
+            val reason = "Invalid admin secret"
+            adminLoginBruteForce?.recordFailure(normalizedEmail)
+            auditLogger.log(AuditEvent.AdminLoginFailure(email = normalizedEmail, reason = reason))
             throw ForbiddenException("Invalid admin access secret")
         }
-        val session = loginWithEmail(email, password)
+
+        val session = try {
+            loginWithEmail(normalizedEmail, password)
+        } catch (e: Exception) {
+            adminLoginBruteForce?.recordFailure(normalizedEmail)
+            auditLogger.log(AuditEvent.AdminLoginFailure(email = normalizedEmail, reason = e.message ?: "login failed"))
+            throw e
+        }
+
         if (session.role != UserRole.ADMIN) {
+            adminLoginBruteForce?.recordFailure(normalizedEmail)
+            auditLogger.log(AuditEvent.AdminLoginFailure(email = normalizedEmail, reason = "Not an admin"))
             throw ForbiddenException("Admin role is required")
         }
+
+        adminLoginBruteForce?.recordSuccess(normalizedEmail)
+        auditLogger.log(AuditEvent.AdminLoginSuccess(adminId = session.userId, email = normalizedEmail))
         return session
     }
 
@@ -119,11 +198,10 @@ class AuthService(
         val subject = tokenFactory.stableSubject(token)
         val existing = authUserRepository.findBySocialAccount(provider, subject)
         if (existing != null) {
-            val businessUser = businessUserRepository.ensureUser(
+            val businessUser = ensureBusinessUser(
                 id = existing.id,
                 email = existing.email,
                 displayName = existing.displayName,
-                role = roleForEmail(existing.email),
             )
             return issueSession(businessUser.id, businessUser.role, isNewUser = false)
         }
@@ -135,11 +213,10 @@ class AuthService(
                 socialAccounts = attachedUser.socialAccounts + SocialAccount(provider, subject),
             )
             authUserRepository.upsertUser(merged)
-            val businessUser = businessUserRepository.ensureUser(
+            val businessUser = ensureBusinessUser(
                 id = merged.id,
                 email = merged.email,
                 displayName = merged.displayName,
-                role = roleForEmail(merged.email),
             )
             return issueSession(businessUser.id, businessUser.role, isNewUser = false)
         }
@@ -152,11 +229,10 @@ class AuthService(
             socialAccounts = setOf(SocialAccount(provider, subject)),
         )
         authUserRepository.upsertUser(user)
-        val businessUser = businessUserRepository.ensureUser(
+        val businessUser = ensureBusinessUser(
             id = user.id,
             email = user.email,
             displayName = user.displayName,
-            role = roleForEmail(user.email),
         )
         return issueSession(businessUser.id, businessUser.role, isNewUser = true)
     }
@@ -180,11 +256,10 @@ class AuthService(
             socialAccounts = emptySet(),
         )
         authUserRepository.upsertUser(user)
-        val businessUser = businessUserRepository.ensureUser(
+        val businessUser = ensureBusinessUser(
             id = user.id,
             email = user.email,
             displayName = user.displayName,
-            role = roleForEmail(user.email),
         )
         return issueSession(businessUser.id, businessUser.role, isNewUser = true)
     }
@@ -199,11 +274,10 @@ class AuthService(
         if (!passwordHasher.matches(password, passwordHash)) {
             throw UnauthorizedException("Invalid email or password")
         }
-        val businessUser = businessUserRepository.ensureUser(
+        val businessUser = ensureBusinessUser(
             id = user.id,
             email = user.email,
             displayName = user.displayName,
-            role = roleForEmail(user.email),
         )
         return issueSession(businessUser.id, businessUser.role, isNewUser = false)
     }
@@ -221,6 +295,7 @@ class AuthService(
             ),
         )
         authEmailGateway.sendPasswordReset(normalizedEmail, token)
+        auditLogger.log(AuditEvent.PasswordResetRequested(email = normalizedEmail))
     }
 
     fun confirmPasswordReset(token: String, newPassword: String): AuthSession {
@@ -241,12 +316,17 @@ class AuthService(
                 passwordHash = passwordHasher.hash(newPassword),
             ),
         )
-        val businessUser = businessUserRepository.ensureUser(
+
+        // Invalidate all existing sessions so stolen refresh tokens cannot be reused
+        authUserRepository.revokeAllRefreshTokens(user.id)
+        auditLogger.log(AuditEvent.SessionsRevoked(userId = user.id, reason = "password_reset"))
+
+        val businessUser = ensureBusinessUser(
             id = user.id,
             email = user.email,
             displayName = user.displayName,
-            role = roleForEmail(user.email),
         )
+        auditLogger.log(AuditEvent.PasswordResetConfirmed(userId = user.id))
         return issueSession(businessUser.id, businessUser.role, isNewUser = false)
     }
 
@@ -261,11 +341,10 @@ class AuthService(
 
         val authUser = authUserRepository.findById(record.userId)
             ?: throw UnauthorizedException("User for refresh token was not found")
-        val businessUser = businessUserRepository.ensureUser(
+        val businessUser = ensureBusinessUser(
             id = authUser.id,
             email = authUser.email,
             displayName = authUser.displayName,
-            role = roleForEmail(authUser.email),
         )
         return issueSession(businessUser.id, businessUser.role, isNewUser = false)
     }
@@ -310,6 +389,14 @@ class AuthService(
             throw ValidationException("Token must not be blank")
         }
     }
+
+    private fun ensureBusinessUser(id: String, email: String?, displayName: String?) =
+        businessUserRepository.ensureUser(
+            id = id,
+            email = email,
+            displayName = displayName,
+            role = businessUserRepository.findById(id)?.role ?: roleForEmail(email),
+        )
 
     private fun roleForEmail(email: String?): UserRole {
         return if (email != null && adminEmails.contains(email.trim().lowercase())) {

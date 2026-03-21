@@ -30,3 +30,8 @@ class ForbiddenException(
     message: String,
     details: String? = null,
 ) : AppException("forbidden", message, details)
+
+class TooManyRequestsException(
+    message: String,
+    details: String? = null,
+) : AppException("too_many_requests", message, details)

@@ -24,7 +24,10 @@ import com.morningalarm.server.modules.ringtone.infra.PostgresRingtoneRepository
 import com.morningalarm.server.modules.ringtone.infra.RingtoneDatabaseSchema
 import com.morningalarm.server.modules.user.infra.PostgresBusinessUserRepository
 import com.morningalarm.server.modules.user.infra.UserDatabaseSchema
+import com.morningalarm.server.shared.audit.AuditLogger
+import com.morningalarm.server.shared.audit.Slf4jAuditLogger
 import com.morningalarm.server.shared.auth.JwtAccessTokenService
+import com.morningalarm.server.shared.ratelimit.BruteForceProtector
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
@@ -47,6 +50,7 @@ fun createModuleDependencies(config: AppConfig): ModuleDependencies {
     UserDatabaseSchema(dataSource).ensureCreated()
     RingtoneDatabaseSchema(dataSource).ensureCreated()
 
+    val auditLogger: AuditLogger = Slf4jAuditLogger()
     val clock: Clock = JavaClock()
     val repository: AuthUserRepository = PostgresAuthUserRepository(dataSource)
     val businessUserRepository: BusinessUserRepository = PostgresBusinessUserRepository(dataSource)
@@ -72,6 +76,7 @@ fun createModuleDependencies(config: AppConfig): ModuleDependencies {
         mediaStorage = mediaStorage,
         maxImageBytes = config.mediaMaxImageBytes,
         maxAudioBytes = config.mediaMaxAudioBytes,
+        auditLogger = auditLogger,
     )
     val accessTokenService: AccessTokenService = JwtAccessTokenService(
         secret = config.jwtSecret,
@@ -79,6 +84,12 @@ fun createModuleDependencies(config: AppConfig): ModuleDependencies {
         audience = config.jwtAudience,
     )
     val ringtoneRepository: RingtoneRepository = PostgresRingtoneRepository(dataSource)
+
+    // Brute-force protection for admin login: limited attempts within a sliding window
+    val adminLoginBruteForce = BruteForceProtector(
+        maxAttempts = config.adminLoginMaxAttempts,
+        windowSeconds = config.adminLoginWindowSeconds,
+    )
 
     val authService = AuthService(
         authUserRepository = repository,
@@ -92,10 +103,14 @@ fun createModuleDependencies(config: AppConfig): ModuleDependencies {
         accessTokenTtlSeconds = config.accessTokenTtlSeconds,
         refreshTokenTtlSeconds = config.refreshTokenTtlSeconds,
         passwordResetTokenTtlSeconds = config.passwordResetTokenTtlSeconds,
+        auditLogger = auditLogger,
+        adminLoginBruteForce = adminLoginBruteForce,
     )
     val ringtoneService = RingtoneService(
         ringtoneRepository = ringtoneRepository,
         tokenFactory = tokenFactory,
+        auditLogger = auditLogger,
+        clock = clock,
     )
 
     return ModuleDependencies(

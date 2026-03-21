@@ -15,6 +15,11 @@ class SecureTokenFactory : TokenFactory {
 
     override fun newPasswordResetToken(): String = "rst_${randomToken()}"
 
+    override fun newTemporaryPassword(): String {
+        val bytes = ByteArray(12).also(secureRandom::nextBytes)
+        return "adm_${Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)}"
+    }
+
     override fun stableSubject(rawToken: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(rawToken.toByteArray())
         return Base64.getUrlEncoder().withoutPadding().encodeToString(digest)

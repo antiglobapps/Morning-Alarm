@@ -17,6 +17,8 @@ Base packages:
 Shared header constants:
 - `ApiHeaders.REQUEST_ID` — request tracing header shared by clients and server
 - `ApiHeaders.ADMIN_SECRET` — admin access header required by desktop-admin and protected admin APIs
+- `DevAdminDefaults` — shared dev-only admin email/password/secret defaults used by local server bootstrap and desktop-admin login autofill
+- Secret identifier ownership is registered centrally in `docs/configuration/secrets.md` and `config/secrets.catalog.toml`
 
 Contract split:
 - public app/client contracts stay under `com.morningalarm.api.*` and `com.morningalarm.dto.*`

@@ -19,24 +19,19 @@ import com.morningalarm.dto.auth.SocialAuthRequestDto
 import com.morningalarm.dto.auth.SocialAuthResponseDto
 import com.morningalarm.dto.auth.SocialProviderDto
 import com.morningalarm.server.bootstrap.AppConfig
-import com.morningalarm.server.bootstrap.ModuleDependencies
-import com.morningalarm.server.bootstrap.applicationModule
 import com.morningalarm.server.bootstrap.createModuleDependencies
 import com.morningalarm.server.modules.auth.application.AuthService
 import com.morningalarm.server.modules.auth.infra.InMemoryAuthEmailGateway
+import com.morningalarm.server.testApp
+import com.morningalarm.server.testConfig
 import io.ktor.client.call.body
-import io.ktor.client.HttpClient
 import io.ktor.client.request.get
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
-import io.ktor.server.testing.testApplication
-import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -45,6 +40,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.assertContains
+import kotlin.test.assertFailsWith
 
 class AuthRoutesTest {
     @Test
@@ -126,7 +122,7 @@ class AuthRoutesTest {
     }
 
     @Test
-    fun `social auth creates new user on first login and reuses user on second login`() = testApplicationWithDependencies { dependencies, client ->
+    fun `social auth creates new user on first login and reuses user on second login`() = testApp { dependencies, client ->
         val firstResponse = client.post(AuthRoutes.SOCIAL) {
             contentType(ContentType.Application.Json)
             setBody(
@@ -160,7 +156,7 @@ class AuthRoutesTest {
     }
 
     @Test
-    fun `email register login refresh and reset password flow works`() = testApplicationWithDependencies { dependencies, client ->
+    fun `email register login refresh and reset password flow works`() = testApp { dependencies, client ->
         val registerResponse = client.post(AuthRoutes.EMAIL_REGISTER) {
             contentType(ContentType.Application.Json)
             setBody(
@@ -250,7 +246,7 @@ class AuthRoutesTest {
     }
 
     @Test
-    fun `admin login requires admin secret and admin role`() = testApplicationWithDependencies(
+    fun `admin login requires admin secret and admin role`() = testApp(
         configOverride = { copy(adminAccessSecret = "top-secret") },
     ) { _, client ->
         client.post(AuthRoutes.EMAIL_REGISTER) {
@@ -316,7 +312,7 @@ class AuthRoutesTest {
     }
 
     @Test
-    fun `duplicate registration returns conflict error`() = testApplicationWithDependencies { _, client ->
+    fun `duplicate registration returns conflict error`() = testApp { _, client ->
         client.post(AuthRoutes.EMAIL_REGISTER) {
             contentType(ContentType.Application.Json)
             setBody(
@@ -344,7 +340,7 @@ class AuthRoutesTest {
     }
 
     @Test
-    fun `swagger and openapi endpoints are exposed`() = testApplicationWithDependencies { _, client ->
+    fun `swagger and openapi endpoints are exposed`() = testApp { _, client ->
         val swaggerResponse = client.get("/swagger")
         assertEquals(HttpStatusCode.OK, swaggerResponse.status)
         assertContains(swaggerResponse.body<String>(), "Swagger UI")
@@ -382,60 +378,54 @@ class AuthRoutesTest {
         assertEquals(firstSession.userId, secondSession.userId)
     }
 
-    private fun testApplicationWithDependencies(
-        configOverride: (AppConfig.() -> AppConfig) = { this },
-        block: suspend io.ktor.server.testing.ApplicationTestBuilder.(ModuleDependencies, HttpClient) -> Unit,
-    ) = testApplication {
-        val config = configOverride(testConfig(Files.createTempDirectory("morning-alarm-auth-test").toString()))
-        val dependencies = createModuleDependencies(config)
-        application {
-            applicationModule(
-                config = config,
-                dependencies = dependencies,
-            )
+    @Test
+    fun `password reset invalidates all existing refresh tokens`() {
+        val dataDir = Files.createTempDirectory("morning-alarm-auth-revoke").toString()
+        val deps = createModuleDependencies(testConfig(dataDir))
+        val service = deps.authService
+        val emailGateway = deps.authEmailGateway as InMemoryAuthEmailGateway
+
+        val session = service.registerWithEmail(
+            email = "revoke@example.com",
+            password = "password1",
+            displayName = "Revoke User",
+        )
+        val oldRefreshToken = session.refreshToken
+
+        service.requestPasswordReset("revoke@example.com")
+        val resetToken = requireNotNull(emailGateway.lastResetToken("revoke@example.com"))
+        service.confirmPasswordReset(resetToken, "newpassword2")
+
+        // Old refresh token must be invalid after password reset
+        assertFailsWith<com.morningalarm.server.shared.errors.UnauthorizedException> {
+            service.refresh(oldRefreshToken)
         }
-        val client = createClient {
-            install(ContentNegotiation) {
-                json(
-                    Json {
-                        ignoreUnknownKeys = false
-                        explicitNulls = false
-                    },
-                )
+    }
+
+    @Test
+    fun `admin login brute force blocks after exceeding max attempts`() = testApp(
+        configOverride = { copy(adminAccessSecret = "secret123", adminLoginMaxAttempts = 2, adminLoginWindowSeconds = 300L) },
+    ) { _, client ->
+        // Two failed attempts
+        repeat(2) {
+            client.post(AuthRoutes.ADMIN_LOGIN) {
+                contentType(ContentType.Application.Json)
+                setBody(AdminLoginRequestDto(email = "admin@example.com", password = "wrongpass", adminSecret = "secret123"))
             }
         }
-        block(dependencies, client)
+
+        // Third attempt should be rate-limited
+        val blockedResponse = client.post(AuthRoutes.ADMIN_LOGIN) {
+            contentType(ContentType.Application.Json)
+            setBody(AdminLoginRequestDto(email = "admin@example.com", password = "wrongpass", adminSecret = "secret123"))
+        }
+
+        assertEquals(HttpStatusCode.TooManyRequests, blockedResponse.status)
+        val error = blockedResponse.body<ApiError>()
+        assertEquals("too_many_requests", error.code)
     }
 
     private fun createService(dataDir: String): AuthService {
         return createModuleDependencies(testConfig(dataDir)).authService
     }
-
-    private fun testConfig(dataDir: String): AppConfig = AppConfig(
-        devMode = true,
-        host = "127.0.0.1",
-        port = 8080,
-        publicUrl = null,
-        logPublicUrl = false,
-        mediaStorageDir = "$dataDir/media",
-        mediaPublicBaseUrl = "http://localhost:8080",
-        mediaMaxImageBytes = 1024 * 1024,
-        mediaMaxAudioBytes = 5 * 1024 * 1024,
-        firebaseBucketName = null,
-        firebaseCredentialsPath = null,
-        databaseUrl = "jdbc:h2:file:$dataDir/auth-db;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH",
-        databaseUser = "sa",
-        databasePassword = "",
-        databaseDriver = "org.h2.Driver",
-        databasePoolMaxSize = 4,
-        jwtSecret = "test-secret",
-        jwtIssuer = "test-issuer",
-        jwtAudience = "test-audience",
-        adminEmails = setOf("admin@example.com"),
-        adminBootstrapSecret = null,
-        adminAccessSecret = null,
-        accessTokenTtlSeconds = 24 * 60 * 60L,
-        refreshTokenTtlSeconds = 30 * 24 * 60 * 60L,
-        passwordResetTokenTtlSeconds = 60 * 60L,
-    )
 }
