@@ -1,0 +1,50 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FaqAccordion from '../components/FaqAccordion.astro';
+import { faqItems } from '../data/faq';
+import { site } from '../data/site';
+
+// FAQ Page JSON-LD for Google rich results
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqItems.map((item) => ({
+    '@type': 'Question',
+    name: item.question,
+    acceptedAnswer: {
+      '@type': 'Answer',
+      text: item.answer,
+    },
+  })),
+};
+---
+
+<BaseLayout
+  title="FAQ"
+  description="Frequently asked questions about Morning Alarm — pricing, platforms, Morning/Night modes, offline support, voice stop, and more."
+  canonicalPath="/faq/"
+  jsonLd={jsonLd}
+>
+  <div class="max-w-3xl mx-auto px-6 pt-16 pb-20">
+    <h1 class="text-4xl font-bold mb-4">Frequently Asked Questions</h1>
+    <p class="text-lg text-morning-on-bg/60 mb-12">
+      Everything you need to know about Morning Alarm.
+    </p>
+
+    <FaqAccordion items={faqItems} />
+
+    <!-- Contact -->
+    <div class="mt-16 bg-morning-brand/10 rounded-2xl p-8 text-center">
+      <h2 class="text-xl font-semibold mb-2">Still have questions?</h2>
+      <p class="text-sm text-morning-on-bg/60 mb-4">
+        We are happy to help.
+      </p>
+      <a
+        href={`mailto:${site.email}`}
+        class="inline-flex items-center gap-2 bg-morning-primary text-white rounded-full px-6 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity"
+      >
+        Contact us
+      </a>
+    </div>
+  </div>
+</BaseLayout>

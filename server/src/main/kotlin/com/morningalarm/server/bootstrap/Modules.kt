@@ -1,0 +1,116 @@
+package com.morningalarm.server.bootstrap
+
+import com.morningalarm.server.modules.auth.application.AuthService
+import com.morningalarm.server.modules.auth.application.ports.AccessTokenService
+import com.morningalarm.server.modules.auth.application.ports.AuthEmailGateway
+import com.morningalarm.server.modules.auth.application.ports.AuthUserRepository
+import com.morningalarm.server.modules.auth.application.ports.BusinessUserRepository
+import com.morningalarm.server.modules.auth.application.ports.Clock
+import com.morningalarm.server.modules.auth.application.ports.PasswordHasher
+import com.morningalarm.server.modules.auth.application.ports.TokenFactory
+import com.morningalarm.server.modules.auth.infra.AuthDatabaseSchema
+import com.morningalarm.server.modules.auth.infra.InMemoryAuthEmailGateway
+import com.morningalarm.server.modules.auth.infra.PostgresAuthUserRepository
+import com.morningalarm.server.modules.auth.infra.JavaClock
+import com.morningalarm.server.modules.auth.infra.Pbkdf2PasswordHasher
+import com.morningalarm.server.modules.auth.infra.SecureTokenFactory
+import com.morningalarm.server.modules.media.application.AdminMediaService
+import com.morningalarm.server.modules.media.application.ports.MediaStorage
+import com.morningalarm.server.modules.media.infra.LocalDevMediaStorage
+import com.morningalarm.server.modules.ringtone.application.RingtoneService
+import com.morningalarm.server.modules.ringtone.application.ports.RingtoneRepository
+import com.morningalarm.server.modules.ringtone.infra.PostgresRingtoneRepository
+import com.morningalarm.server.modules.ringtone.infra.RingtoneDatabaseSchema
+import com.morningalarm.server.modules.user.infra.PostgresBusinessUserRepository
+import com.morningalarm.server.modules.user.infra.UserDatabaseSchema
+import com.morningalarm.server.shared.auth.JwtAccessTokenService
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
+import javax.sql.DataSource
+
+data class ModuleDependencies(
+    val authService: AuthService,
+    val authUserRepository: AuthUserRepository,
+    val businessUserRepository: BusinessUserRepository,
+    val authEmailGateway: AuthEmailGateway,
+    val ringtoneService: RingtoneService,
+    val adminMediaService: AdminMediaService,
+    val accessTokenService: AccessTokenService,
+    val dataSource: DataSource,
+    val adminAccessSecret: String?,
+)
+
+fun createModuleDependencies(config: AppConfig): ModuleDependencies {
+    val dataSource = createDataSource(config)
+    AuthDatabaseSchema(dataSource).ensureCreated()
+    UserDatabaseSchema(dataSource).ensureCreated()
+    RingtoneDatabaseSchema(dataSource).ensureCreated()
+
+    val clock: Clock = JavaClock()
+    val repository: AuthUserRepository = PostgresAuthUserRepository(dataSource)
+    val businessUserRepository: BusinessUserRepository = PostgresBusinessUserRepository(dataSource)
+    val emailGateway = InMemoryAuthEmailGateway()
+    val tokenFactory: TokenFactory = SecureTokenFactory()
+    val passwordHasher: PasswordHasher = Pbkdf2PasswordHasher()
+    val mediaStorage: MediaStorage = LocalDevMediaStorage(
+        storageDir = config.mediaStorageDir,
+        publicBaseUrl = config.mediaPublicBaseUrl,
+    )
+    val adminMediaService = AdminMediaService(
+        mediaStorage = mediaStorage,
+        maxImageBytes = config.mediaMaxImageBytes,
+        maxAudioBytes = config.mediaMaxAudioBytes,
+    )
+    val accessTokenService: AccessTokenService = JwtAccessTokenService(
+        secret = config.jwtSecret,
+        issuer = config.jwtIssuer,
+        audience = config.jwtAudience,
+    )
+    val ringtoneRepository: RingtoneRepository = PostgresRingtoneRepository(dataSource)
+
+    val authService = AuthService(
+        authUserRepository = repository,
+        businessUserRepository = businessUserRepository,
+        authEmailGateway = emailGateway,
+        tokenFactory = tokenFactory,
+        accessTokenService = accessTokenService,
+        passwordHasher = passwordHasher,
+        clock = clock,
+        adminEmails = config.adminEmails,
+        accessTokenTtlSeconds = config.accessTokenTtlSeconds,
+        refreshTokenTtlSeconds = config.refreshTokenTtlSeconds,
+        passwordResetTokenTtlSeconds = config.passwordResetTokenTtlSeconds,
+    )
+    val ringtoneService = RingtoneService(
+        ringtoneRepository = ringtoneRepository,
+        tokenFactory = tokenFactory,
+    )
+
+    return ModuleDependencies(
+        authService = authService,
+        authUserRepository = repository,
+        businessUserRepository = businessUserRepository,
+        authEmailGateway = emailGateway,
+        ringtoneService = ringtoneService,
+        adminMediaService = adminMediaService,
+        accessTokenService = accessTokenService,
+        dataSource = dataSource,
+        adminAccessSecret = config.adminAccessSecret,
+    )
+}
+
+private fun createDataSource(config: AppConfig): DataSource {
+    val hikariConfig = HikariConfig().apply {
+        jdbcUrl = config.databaseUrl
+        username = config.databaseUser
+        password = config.databasePassword
+        driverClassName = config.databaseDriver
+        maximumPoolSize = config.databasePoolMaxSize
+        minimumIdle = 1
+        isAutoCommit = true
+        connectionTimeout = 10_000
+        initializationFailTimeout = 10_000
+        validate()
+    }
+    return HikariDataSource(hikariConfig)
+}

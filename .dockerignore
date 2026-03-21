@@ -1,0 +1,12 @@
+.git
+.gitignore
+.gradle
+build
+**/build
+**/.gradle
+design-app/node_modules
+design-app/dist
+xy-app
+server/docs
+**/.idea
+**/*.iml

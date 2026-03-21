@@ -1,0 +1,24 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ScreenshotGrid from '../components/ScreenshotGrid.astro';
+import DownloadButtons from '../components/DownloadButtons.astro';
+---
+
+<BaseLayout
+  title="Screenshots"
+  description="See Morning Alarm in action — alarm list, wake-up scenes, sleep library, and more. Available on iOS and Android."
+  canonicalPath="/screenshots"
+>
+  <div class="max-w-5xl mx-auto px-6 pt-16 pb-20">
+    <h1 class="text-4xl font-bold mb-4">Screenshots</h1>
+    <p class="text-lg text-morning-on-bg/60 max-w-2xl mb-12">
+      A look at Morning Alarm on your phone. Morning and Night themes adapt automatically based on time of day.
+    </p>
+
+    <ScreenshotGrid />
+
+    <div class="text-center mt-16">
+      <DownloadButtons centered />
+    </div>
+  </div>
+</BaseLayout>

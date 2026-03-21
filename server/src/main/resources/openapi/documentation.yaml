@@ -1,0 +1,1052 @@
+openapi: 3.0.3
+info:
+  title: Morning Alarm Server API
+  version: 1.4.0
+  description: |
+    Current server API for Morning Alarm.
+    Any API change must update this OpenAPI schema in the same change set.
+servers:
+  - url: /
+tags:
+  - name: Health
+    description: Infrastructure probes for deployment and monitoring
+  - name: Auth
+    description: Authentication and session management
+  - name: Ringtones
+    description: Client ringtone catalog and user likes
+  - name: Admin Ringtones
+    description: Admin ringtone management and client-view previews
+  - name: Admin Uploads
+    description: Admin media upload endpoints for ringtone assets
+x-tagGroups:
+  - name: Platform
+    tags: [Health]
+  - name: Identity
+    tags: [Auth]
+  - name: Client Content
+    tags: [Ringtones]
+  - name: Admin Content
+    tags: [Admin Ringtones]
+  - name: Admin Media
+    tags: [Admin Uploads]
+paths:
+  /health/live:
+    get:
+      tags: [Health]
+      operationId: getLiveness
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: Server is alive
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+  /health/ready:
+    get:
+      tags: [Health]
+      operationId: getReadiness
+      summary: Readiness probe
+      security: []
+      responses:
+        '200':
+          description: Server is ready
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+  /api/v1/auth/social:
+    post:
+      tags: [Auth]
+      operationId: socialAuthorize
+      summary: Authorize with social provider
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SocialAuthRequest'
+      responses:
+        '200':
+          description: Social authorization succeeded
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialAuthResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+  /api/v1/auth/email/register:
+    post:
+      tags: [Auth]
+      operationId: registerByEmail
+      summary: Register with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRegisterRequest'
+      responses:
+        '201':
+          description: Registration succeeded
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailRegisterResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+  /api/v1/auth/email/login:
+    post:
+      tags: [Auth]
+      operationId: loginByEmail
+      summary: Login with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailLoginRequest'
+      responses:
+        '200':
+          description: Login succeeded
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailLoginResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /api/v1/auth/password/reset/request:
+    post:
+      tags: [Auth]
+      operationId: requestPasswordReset
+      summary: Request password reset
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '200':
+          description: Password reset was requested
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetRequestResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+  /api/v1/auth/password/reset/confirm:
+    post:
+      tags: [Auth]
+      operationId: confirmPasswordReset
+      summary: Confirm password reset
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+      responses:
+        '200':
+          description: Password reset completed and new session issued
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetConfirmResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /api/v1/auth/token/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshSessionToken
+      summary: Refresh bearer session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Refresh succeeded
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshTokenResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /api/v1/auth/admin/login:
+    post:
+      tags: [Auth]
+      operationId: loginAdminByEmail
+      summary: Login to admin session with additional access secret
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+      responses:
+        '200':
+          description: Admin login succeeded
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /api/v1/ringtones:
+    get:
+      tags: [Ringtones]
+      operationId: listRingtones
+      summary: Get active ringtone list for current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Active ringtone list
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RingtoneListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /api/v1/ringtones/{ringtoneId}:
+    get:
+      tags: [Ringtones]
+      operationId: getRingtoneDetail
+      summary: Get one active ringtone for current user
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RingtoneId'
+      responses:
+        '200':
+          description: Active ringtone detail
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RingtoneDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /api/v1/ringtones/{ringtoneId}/like-toggle:
+    post:
+      tags: [Ringtones]
+      operationId: toggleRingtoneLike
+      summary: Toggle like for an active ringtone
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RingtoneId'
+      responses:
+        '200':
+          description: Current like state for user
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToggleRingtoneLikeResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /api/v1/admin/ringtones:
+    get:
+      tags: [Admin Ringtones]
+      operationId: listAdminRingtones
+      summary: Get full ringtone list for admin management
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AdminSecretHeader'
+      responses:
+        '200':
+          description: Admin ringtone list
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRingtoneListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+    post:
+      tags: [Admin Ringtones]
+      operationId: createAdminRingtone
+      summary: Create ringtone with admin metadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AdminSecretHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdminRingtoneRequest'
+      responses:
+        '201':
+          description: Ringtone created
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAdminRingtoneResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /api/v1/admin/ringtones/client-preview:
+    get:
+      tags: [Admin Ringtones]
+      operationId: getAdminClientRingtonePreviewList
+      summary: Get ringtone list as it is visible to the current user-facing client session
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AdminSecretHeader'
+      responses:
+        '200':
+          description: Client-visible ringtone list preview
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRingtoneClientListPreviewResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /api/v1/admin/ringtones/{ringtoneId}:
+    get:
+      tags: [Admin Ringtones]
+      operationId: getAdminRingtoneDetail
+      summary: Get full ringtone detail for admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RingtoneId'
+        - $ref: '#/components/parameters/AdminSecretHeader'
+      responses:
+        '200':
+          description: Admin ringtone detail
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRingtoneDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      tags: [Admin Ringtones]
+      operationId: updateAdminRingtone
+      summary: Update ringtone with admin metadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RingtoneId'
+        - $ref: '#/components/parameters/AdminSecretHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdminRingtoneRequest'
+      responses:
+        '200':
+          description: Ringtone updated
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateAdminRingtoneResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags: [Admin Ringtones]
+      operationId: deleteAdminRingtone
+      summary: Delete ringtone
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RingtoneId'
+        - $ref: '#/components/parameters/AdminSecretHeader'
+      responses:
+        '200':
+          description: Ringtone deleted
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteAdminRingtoneResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /api/v1/admin/ringtones/{ringtoneId}/preview:
+    get:
+      tags: [Admin Ringtones]
+      operationId: getAdminRingtonePreview
+      summary: Get user-facing preview for a ringtone
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RingtoneId'
+        - $ref: '#/components/parameters/AdminSecretHeader'
+      responses:
+        '200':
+          description: User-facing preview for admin
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRingtonePreviewResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /api/v1/admin/ringtones/{ringtoneId}/active-toggle:
+    post:
+      tags: [Admin Ringtones]
+      operationId: toggleAdminRingtoneActive
+      summary: Toggle active status of a ringtone
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RingtoneId'
+        - $ref: '#/components/parameters/AdminSecretHeader'
+      responses:
+        '200':
+          description: Current active state
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToggleRingtoneActiveResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /api/v1/admin/ringtones/{ringtoneId}/premium-toggle:
+    post:
+      tags: [Admin Ringtones]
+      operationId: toggleAdminRingtonePremium
+      summary: Toggle premium status of a ringtone
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RingtoneId'
+        - $ref: '#/components/parameters/AdminSecretHeader'
+      responses:
+        '200':
+          description: Current premium state
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToggleRingtonePremiumResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /api/v1/admin/uploads/image:
+    post:
+      tags: [Admin Uploads]
+      operationId: uploadAdminImage
+      summary: Upload image asset for admin-managed content
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AdminSecretHeader'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Image uploaded
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadImageResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /api/v1/admin/uploads/audio:
+    post:
+      tags: [Admin Uploads]
+      operationId: uploadAdminAudio
+      summary: Upload audio asset for admin-managed content
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AdminSecretHeader'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Audio uploaded
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadAudioResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+components:
+  headers:
+    RequestId:
+      description: Request tracing identifier
+      schema:
+        type: string
+  parameters:
+    RingtoneId:
+      name: ringtoneId
+      in: path
+      required: true
+      schema:
+        type: string
+    AdminSecretHeader:
+      name: X-Admin-Secret
+      in: header
+      required: false
+      description: Additional admin access secret. Required in hardened environments where SERVER_ADMIN_ACCESS_SECRET is configured.
+      schema:
+        type: string
+  responses:
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnauthorizedError:
+      description: Authentication failed or token is invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ForbiddenError:
+      description: Authenticated user has no access to this operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ConflictError:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFoundError:
+      description: Resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT bearer token returned by auth session endpoints.
+  schemas:
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: string
+          nullable: true
+        requestId:
+          type: string
+          nullable: true
+    UserRole:
+      type: string
+      enum: [ADMIN, USER]
+    SocialProvider:
+      type: string
+      enum: [GOOGLE, VK, FACEBOOK, APPLE]
+    AuthSession:
+      type: object
+      required: [userId, role, bearerToken, refreshToken, expiresAtEpochSeconds, isNewUser]
+      properties:
+        userId:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+        bearerToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresAtEpochSeconds:
+          type: integer
+          format: int64
+        isNewUser:
+          type: boolean
+    SocialAuthRequest:
+      type: object
+      required: [provider, token]
+      properties:
+        provider:
+          $ref: '#/components/schemas/SocialProvider'
+        token:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+    SocialAuthResponse:
+      type: object
+      required: [session]
+      properties:
+        session:
+          $ref: '#/components/schemas/AuthSession'
+    EmailRegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        displayName:
+          type: string
+          nullable: true
+    EmailRegisterResponse:
+      type: object
+      required: [session]
+      properties:
+        session:
+          $ref: '#/components/schemas/AuthSession'
+    EmailLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    EmailLoginResponse:
+      type: object
+      required: [session]
+      properties:
+        session:
+          $ref: '#/components/schemas/AuthSession'
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    PasswordResetRequestResponse:
+      type: object
+      required: [email, resetRequested]
+      properties:
+        email:
+          type: string
+        resetRequested:
+          type: boolean
+    PasswordResetConfirmRequest:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+    PasswordResetConfirmResponse:
+      type: object
+      required: [session]
+      properties:
+        session:
+          $ref: '#/components/schemas/AuthSession'
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+    RefreshTokenResponse:
+      type: object
+      required: [session]
+      properties:
+        session:
+          $ref: '#/components/schemas/AuthSession'
+    AdminLoginRequest:
+      type: object
+      required: [email, password, adminSecret]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        adminSecret:
+          type: string
+    AdminLoginResponse:
+      type: object
+      required: [session]
+      properties:
+        session:
+          $ref: '#/components/schemas/AuthSession'
+    RingtoneItem:
+      type: object
+      required: [id, title, imageUrl, audioUrl, durationSeconds, description, isPremium, likesCount, isLikedByUser]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+        audioUrl:
+          type: string
+          format: uri
+        durationSeconds:
+          type: integer
+        description:
+          type: string
+        isPremium:
+          type: boolean
+        likesCount:
+          type: integer
+        isLikedByUser:
+          type: boolean
+    RingtoneListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RingtoneItem'
+    RingtoneDetailResponse:
+      type: object
+      required: [ringtone]
+      properties:
+        ringtone:
+          $ref: '#/components/schemas/RingtoneItem'
+    ToggleRingtoneLikeResponse:
+      type: object
+      required: [ringtoneId, isLikedByUser, likesCount]
+      properties:
+        ringtoneId:
+          type: string
+        isLikedByUser:
+          type: boolean
+        likesCount:
+          type: integer
+    AdminRingtoneListItem:
+      type: object
+      required: [id, title, description, imageUrl, audioUrl, durationSeconds, isActive, isPremium, likesCount, createdAtEpochSeconds, updatedAtEpochSeconds]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+        audioUrl:
+          type: string
+          format: uri
+        durationSeconds:
+          type: integer
+        isActive:
+          type: boolean
+        isPremium:
+          type: boolean
+        likesCount:
+          type: integer
+        createdAtEpochSeconds:
+          type: integer
+          format: int64
+        updatedAtEpochSeconds:
+          type: integer
+          format: int64
+    AdminRingtoneDetail:
+      allOf:
+        - $ref: '#/components/schemas/AdminRingtoneListItem'
+        - type: object
+          required: [preview]
+          properties:
+            preview:
+              $ref: '#/components/schemas/RingtoneItem'
+    AdminRingtoneListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminRingtoneListItem'
+    AdminRingtoneDetailResponse:
+      type: object
+      required: [ringtone]
+      properties:
+        ringtone:
+          $ref: '#/components/schemas/AdminRingtoneDetail'
+    CreateAdminRingtoneRequest:
+      type: object
+      required: [title, description, imageUrl, audioUrl, durationSeconds, isActive, isPremium]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+        audioUrl:
+          type: string
+          format: uri
+        durationSeconds:
+          type: integer
+        isActive:
+          type: boolean
+        isPremium:
+          type: boolean
+    CreateAdminRingtoneResponse:
+      type: object
+      required: [ringtone]
+      properties:
+        ringtone:
+          $ref: '#/components/schemas/AdminRingtoneDetail'
+    UpdateAdminRingtoneRequest:
+      type: object
+      required: [title, description, imageUrl, audioUrl, durationSeconds, isActive, isPremium]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+        audioUrl:
+          type: string
+          format: uri
+        durationSeconds:
+          type: integer
+        isActive:
+          type: boolean
+        isPremium:
+          type: boolean
+    UpdateAdminRingtoneResponse:
+      type: object
+      required: [ringtone]
+      properties:
+        ringtone:
+          $ref: '#/components/schemas/AdminRingtoneDetail'
+    DeleteAdminRingtoneResponse:
+      type: object
+      required: [ringtoneId, deleted]
+      properties:
+        ringtoneId:
+          type: string
+        deleted:
+          type: boolean
+    AdminRingtonePreviewResponse:
+      type: object
+      required: [ringtoneId, preview]
+      properties:
+        ringtoneId:
+          type: string
+        preview:
+          $ref: '#/components/schemas/RingtoneItem'
+    AdminRingtoneClientListPreviewResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RingtoneItem'
+    ToggleRingtoneActiveResponse:
+      type: object
+      required: [ringtoneId, isActive]
+      properties:
+        ringtoneId:
+          type: string
+        isActive:
+          type: boolean
+    ToggleRingtonePremiumResponse:
+      type: object
+      required: [ringtoneId, isPremium]
+      properties:
+        ringtoneId:
+          type: string
+        isPremium:
+          type: boolean
+    MediaKind:
+      type: string
+      enum: [IMAGE, AUDIO]
+    UploadedMedia:
+      type: object
+      required: [kind, url, fileName, contentType, sizeBytes]
+      properties:
+        kind:
+          $ref: '#/components/schemas/MediaKind'
+        url:
+          type: string
+          format: uri
+        fileName:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        durationSeconds:
+          type: integer
+          nullable: true
+    UploadImageResponse:
+      type: object
+      required: [media]
+      properties:
+        media:
+          $ref: '#/components/schemas/UploadedMedia'
+    UploadAudioResponse:
+      type: object
+      required: [media]
+      properties:
+        media:
+          $ref: '#/components/schemas/UploadedMedia'

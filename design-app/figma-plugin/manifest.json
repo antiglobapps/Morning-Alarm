@@ -1,0 +1,9 @@
+{
+  "name": "Morning Alarm — DS Variables",
+  "id": "morning-alarm-ds-variables",
+  "api": "1.0.0",
+  "main": "code.js",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "editorType": ["figma", "dev"]
+}

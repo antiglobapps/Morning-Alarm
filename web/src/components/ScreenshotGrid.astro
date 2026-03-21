@@ -1,0 +1,28 @@
+---
+// Screenshot gallery — responsive grid with placeholder frames.
+// Replace placeholder divs with actual <img> tags when screenshots are available.
+
+const screenshots = [
+  { alt: 'Alarm list screen showing active alarms with Morning theme', label: 'Alarm List' },
+  { alt: 'Ringing screen with fullscreen sunrise scene', label: 'Wake Up Scene' },
+  { alt: 'Sleep library with meditations and ambient sounds', label: 'Sleep Library' },
+  { alt: 'Edit alarm screen with time picker and day chips', label: 'Edit Alarm' },
+  { alt: 'Profile and premium features screen', label: 'Profile' },
+];
+---
+
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+  {screenshots.map(({ alt, label }) => (
+    <div class="group">
+      <!-- Placeholder phone frame (9:16 aspect ratio) -->
+      <div
+        class="aspect-[9/16] rounded-2xl bg-gradient-to-b from-morning-surface-variant/60 to-morning-outline-variant/30 border border-morning-outline-variant/40 flex items-center justify-center overflow-hidden"
+        role="img"
+        aria-label={alt}
+      >
+        <span class="text-sm text-morning-on-bg/30 text-center px-4">{alt}</span>
+      </div>
+      <p class="mt-2 text-xs text-center text-morning-on-bg/50 font-medium">{label}</p>
+    </div>
+  ))}
+</div>

@@ -1,0 +1,181 @@
+package com.morningalarm.server.modules.media
+
+import com.morningalarm.api.admin.upload.AdminUploadRoutes
+import com.morningalarm.dto.ApiError
+import com.morningalarm.dto.upload.MediaKindDto
+import com.morningalarm.dto.upload.UploadAudioResponseDto
+import com.morningalarm.dto.upload.UploadImageResponseDto
+import com.morningalarm.server.bootstrap.AppConfig
+import com.morningalarm.server.bootstrap.ModuleDependencies
+import com.morningalarm.server.bootstrap.applicationModule
+import com.morningalarm.server.bootstrap.createModuleDependencies
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.testing.testApplication
+import kotlinx.serialization.json.Json
+import java.nio.file.Files
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class AdminUploadRoutesTest {
+    @Test
+    fun `unauthorized upload requests return 401`() = testApplicationWithDependencies { _, client ->
+        assertEquals(HttpStatusCode.Unauthorized, client.uploadImage("/tmp/test.jpg", "image/jpeg", byteArrayOf(1)).status)
+        assertEquals(HttpStatusCode.Unauthorized, client.uploadAudio("/tmp/test.mp3", "audio/mpeg", byteArrayOf(1)).status)
+    }
+
+    @Test
+    fun `non admin cannot upload media`() = testApplicationWithDependencies { dependencies, client ->
+        val userToken = registerUser(dependencies, "user@example.com").bearerToken
+
+        val response = client.uploadImage("cover.jpg", "image/jpeg", byteArrayOf(1, 2, 3), userToken)
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals("forbidden", response.body<ApiError>().code)
+    }
+
+    @Test
+    fun `admin can upload image and fetch it from media url`() = testApplicationWithDependencies { dependencies, client ->
+        val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
+
+        val response = client.uploadImage("cover.jpg", "image/jpeg", byteArrayOf(10, 20, 30), adminToken)
+        assertEquals(HttpStatusCode.Created, response.status)
+
+        val body = response.body<UploadImageResponseDto>()
+        assertEquals(MediaKindDto.IMAGE, body.media.kind)
+        assertTrue(body.media.url.startsWith("http://localhost:8080/media/image/"))
+
+        val served = client.get(body.media.url.removePrefix("http://localhost:8080"))
+        assertEquals(HttpStatusCode.OK, served.status)
+        assertEquals(3, served.body<ByteArray>().size)
+    }
+
+    @Test
+    fun `admin can upload audio`() = testApplicationWithDependencies { dependencies, client ->
+        val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
+
+        val response = client.uploadAudio("tone.mp3", "audio/mpeg", byteArrayOf(1, 2, 3, 4), adminToken)
+        assertEquals(HttpStatusCode.Created, response.status)
+
+        val body = response.body<UploadAudioResponseDto>()
+        assertEquals(MediaKindDto.AUDIO, body.media.kind)
+        assertTrue(body.media.url.startsWith("http://localhost:8080/media/audio/"))
+        assertEquals(4L, body.media.sizeBytes)
+    }
+
+    @Test
+    fun `admin upload validates media type and size`() = testApplicationWithDependencies { dependencies, client ->
+        val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
+
+        val wrongType = client.uploadImage("cover.txt", "text/plain", byteArrayOf(1), adminToken)
+        assertEquals(HttpStatusCode.BadRequest, wrongType.status)
+        assertEquals("validation_error", wrongType.body<ApiError>().code)
+
+        val tooLargeAudio = client.uploadAudio("huge.mp3", "audio/mpeg", ByteArray(256), adminToken)
+        assertEquals(HttpStatusCode.BadRequest, tooLargeAudio.status)
+        assertEquals("validation_error", tooLargeAudio.body<ApiError>().code)
+    }
+
+    private fun testApplicationWithDependencies(
+        block: suspend io.ktor.server.testing.ApplicationTestBuilder.(ModuleDependencies, HttpClient) -> Unit,
+    ) = testApplication {
+        val config = testConfig(Files.createTempDirectory("morning-alarm-upload-test").toString())
+        val dependencies = createModuleDependencies(config)
+        application {
+            applicationModule(config = config, dependencies = dependencies)
+        }
+        val client = createClient {
+            install(ContentNegotiation) {
+                json(
+                    Json {
+                        ignoreUnknownKeys = false
+                        explicitNulls = false
+                    },
+                )
+            }
+        }
+        block(dependencies, client)
+    }
+
+    private fun registerUser(dependencies: ModuleDependencies, email: String) = dependencies.authService.registerWithEmail(
+        email = email,
+        password = "very-secret",
+        displayName = email.substringBefore('@'),
+    )
+
+    private suspend fun HttpClient.uploadImage(
+        fileName: String,
+        contentType: String,
+        bytes: ByteArray,
+        token: String? = null,
+    ) = post(AdminUploadRoutes.IMAGE) {
+        if (token != null) auth(token)
+        setBody(multipartBody(fileName, contentType, bytes))
+    }
+
+    private suspend fun HttpClient.uploadAudio(
+        fileName: String,
+        contentType: String,
+        bytes: ByteArray,
+        token: String? = null,
+    ) = post(AdminUploadRoutes.AUDIO) {
+        if (token != null) auth(token)
+        setBody(multipartBody(fileName, contentType, bytes))
+    }
+
+    private fun multipartBody(fileName: String, contentType: String, bytes: ByteArray): MultiPartFormDataContent {
+        return MultiPartFormDataContent(
+            formData {
+                append(
+                    key = "file",
+                    value = bytes,
+                    headers = Headers.build {
+                        append(HttpHeaders.ContentType, contentType)
+                        append(HttpHeaders.ContentDisposition, """form-data; name="file"; filename="$fileName"""")
+                    },
+                )
+            },
+        )
+    }
+
+    private fun io.ktor.client.request.HttpRequestBuilder.auth(token: String) {
+        header(HttpHeaders.Authorization, "Bearer $token")
+    }
+
+    private fun testConfig(dataDir: String): AppConfig = AppConfig(
+        host = "127.0.0.1",
+        port = 8080,
+        publicUrl = null,
+        logPublicUrl = false,
+        mediaStorageDir = "$dataDir/media",
+        mediaPublicBaseUrl = "http://localhost:8080",
+        mediaMaxImageBytes = 64,
+        mediaMaxAudioBytes = 128,
+        databaseUrl = "jdbc:h2:file:$dataDir/upload-db;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH",
+        databaseUser = "sa",
+        databasePassword = "",
+        databaseDriver = "org.h2.Driver",
+        databasePoolMaxSize = 4,
+        jwtSecret = "test-secret",
+        jwtIssuer = "test-issuer",
+        jwtAudience = "test-audience",
+        adminEmails = setOf("admin@example.com"),
+        adminBootstrapSecret = null,
+        adminAccessSecret = null,
+        accessTokenTtlSeconds = 24 * 60 * 60L,
+        refreshTokenTtlSeconds = 30 * 24 * 60 * 60L,
+        passwordResetTokenTtlSeconds = 60 * 60L,
+    )
+}

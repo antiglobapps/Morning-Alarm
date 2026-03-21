@@ -1,0 +1,107 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+import FeatureCard from '../components/FeatureCard.astro';
+import DownloadButtons from '../components/DownloadButtons.astro';
+import { site } from '../data/site';
+import { morningFeatures, nightFeatures } from '../data/features';
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: site.name,
+  description: site.description,
+  url: site.url,
+  applicationCategory: 'LifestyleApplication',
+  operatingSystem: 'iOS, Android',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+};
+---
+
+<BaseLayout
+  title={site.name}
+  description={site.description}
+  canonicalPath="/"
+  jsonLd={jsonLd}
+>
+  <!-- Hero -->
+  <Hero />
+
+  <!-- How it works -->
+  <section class="max-w-5xl mx-auto px-6 py-20">
+    <h2 class="text-3xl font-bold text-center mb-4">How it works</h2>
+    <p class="text-center text-morning-on-bg/60 mb-12 max-w-xl mx-auto">
+      Three steps to transform your mornings and nights. No complicated setup — just pick a scenario and go.
+    </p>
+    <div class="grid md:grid-cols-3 gap-8">
+      <div class="text-center">
+        <div class="w-14 h-14 rounded-2xl bg-morning-brand/15 flex items-center justify-center text-2xl mx-auto mb-4">1</div>
+        <h3 class="font-semibold mb-2">Choose a scenario</h3>
+        <p class="text-sm text-morning-on-bg/60">Pick "Gentle Sunrise", "Rainy Sleep", or any mood that fits your day.</p>
+      </div>
+      <div class="text-center">
+        <div class="w-14 h-14 rounded-2xl bg-morning-brand/15 flex items-center justify-center text-2xl mx-auto mb-4">2</div>
+        <h3 class="font-semibold mb-2">Set your alarm</h3>
+        <p class="text-sm text-morning-on-bg/60">Pick a time and repeat days. The scene, melody, and mood are already configured.</p>
+      </div>
+      <div class="text-center">
+        <div class="w-14 h-14 rounded-2xl bg-morning-brand/15 flex items-center justify-center text-2xl mx-auto mb-4">3</div>
+        <h3 class="font-semibold mb-2">Wake up inspired</h3>
+        <p class="text-sm text-morning-on-bg/60">A fullscreen scene fills your screen with atmosphere. Swipe to snooze or say "Stop".</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Morning features -->
+  <section class="bg-gradient-to-b from-morning-brand/5 to-transparent py-20">
+    <div class="max-w-5xl mx-auto px-6">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="text-2xl">☀</span>
+        <h2 class="text-2xl font-bold">Morning Mode</h2>
+      </div>
+      <p class="text-morning-on-bg/60 mb-8 max-w-xl">
+        Atmospheric wake-ups that turn your alarm into a moment you look forward to.
+      </p>
+      <div class="grid md:grid-cols-3 gap-6">
+        {morningFeatures.map((f) => (
+          <FeatureCard icon={f.icon} title={f.title} description={f.description} />
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Night features -->
+  <section class="bg-night-bg py-20">
+    <div class="max-w-5xl mx-auto px-6">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="text-2xl">🌙</span>
+        <h2 class="text-2xl font-bold text-night-on-bg">Night Mode</h2>
+      </div>
+      <p class="text-night-on-bg/60 mb-8 max-w-xl">
+        Wind down with meditations, ambient sounds, and a sleep timer that fades gently.
+      </p>
+      <div class="grid md:grid-cols-3 gap-6">
+        {nightFeatures.map((f) => (
+          <div class="bg-night-surface rounded-2xl p-6 border border-night-outline-variant/30">
+            <div class="text-3xl mb-4">{f.icon}</div>
+            <h3 class="text-lg font-semibold text-night-on-bg mb-2">{f.title}</h3>
+            <p class="text-sm text-night-on-bg/60 leading-relaxed">{f.description}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Download CTA -->
+  <section class="max-w-5xl mx-auto px-6 py-20 text-center">
+    <h2 class="text-3xl font-bold mb-4">Ready for better mornings?</h2>
+    <p class="text-morning-on-bg/60 mb-8 max-w-md mx-auto">
+      Download Morning Alarm and start waking up to atmosphere.
+    </p>
+    <DownloadButtons centered large />
+  </section>
+</BaseLayout>

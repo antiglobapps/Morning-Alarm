@@ -1,0 +1,28 @@
+---
+import type { FaqItem } from '../data/faq';
+
+interface Props {
+  items: FaqItem[];
+}
+
+const { items } = Astro.props;
+---
+
+<div class="divide-y divide-morning-outline-variant/30">
+  {items.map(({ question, answer }) => (
+    <details class="group py-5">
+      <summary class="flex items-center justify-between cursor-pointer list-none text-left font-medium text-morning-on-bg hover:text-morning-primary transition-colors">
+        <span>{question}</span>
+        <svg
+          class="w-5 h-5 shrink-0 ml-4 text-morning-on-bg/40 group-open:rotate-180 transition-transform"
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </summary>
+      <p class="mt-3 text-sm text-morning-on-bg/60 leading-relaxed pr-8">
+        {answer}
+      </p>
+    </details>
+  ))}
+</div>

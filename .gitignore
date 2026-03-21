@@ -1,6 +1,7 @@
 # Gradle files
 .gradle/
 build/
+server/docs/
 
 # Local configuration file (sdk path, etc)
 local.properties
@@ -32,3 +33,18 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Node.js
+node_modules/
+dist/
+
+# Claude Code local settings (may contain user-specific paths)
+.claude/settings.local.json
+.claude/worktrees/
+
+# Codex
+.codex/
+
+# Server data
+server-data/
+xy-app/
