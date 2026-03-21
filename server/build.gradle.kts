@@ -21,11 +21,12 @@ dependencies {
     implementation(libs.swagger.parser)
     implementation(libs.hikari)
     implementation(libs.jwt)
+    implementation(libs.firebase.admin)
     runtimeOnly(libs.postgresql)
+    implementation(libs.h2)
     implementation(projects.shared)
 
     testImplementation(kotlin("test"))
-    testImplementation(libs.h2)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.ktor.client.content.negotiation)
     testImplementation(libs.ktor.serialization.kotlinx.json)
@@ -36,7 +37,7 @@ application {
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 }
 
 tasks.register<JavaExec>("validateOpenApi") {

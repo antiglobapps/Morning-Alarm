@@ -76,6 +76,36 @@ class AdminUploadRoutesTest {
     }
 
     @Test
+    fun `audio upload returns detected duration for wav`() = testApplicationWithDependencies { dependencies, client ->
+        val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
+
+        val response = client.uploadAudio(
+            fileName = "tone.wav",
+            contentType = "audio/wav",
+            bytes = createWav(durationMillis = 1_000),
+            token = adminToken,
+        )
+
+        assertEquals(HttpStatusCode.Created, response.status)
+        assertEquals(1, response.body<UploadAudioResponseDto>().media.durationSeconds)
+    }
+
+    @Test
+    fun `audio upload returns detected duration for mp3`() = testApplicationWithDependencies { dependencies, client ->
+        val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
+
+        val response = client.uploadAudio(
+            fileName = "tone.mp3",
+            contentType = "audio/mpeg",
+            bytes = createMp3(frameCount = 76),
+            token = adminToken,
+        )
+
+        assertEquals(HttpStatusCode.Created, response.status)
+        assertEquals(2, response.body<UploadAudioResponseDto>().media.durationSeconds)
+    }
+
+    @Test
     fun `admin upload validates media type and size`() = testApplicationWithDependencies { dependencies, client ->
         val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
 
@@ -83,7 +113,7 @@ class AdminUploadRoutesTest {
         assertEquals(HttpStatusCode.BadRequest, wrongType.status)
         assertEquals("validation_error", wrongType.body<ApiError>().code)
 
-        val tooLargeAudio = client.uploadAudio("huge.mp3", "audio/mpeg", ByteArray(256), adminToken)
+        val tooLargeAudio = client.uploadAudio("huge.mp3", "audio/mpeg", ByteArray(9_000), adminToken)
         assertEquals(HttpStatusCode.BadRequest, tooLargeAudio.status)
         assertEquals("validation_error", tooLargeAudio.body<ApiError>().code)
     }
@@ -155,6 +185,7 @@ class AdminUploadRoutesTest {
     }
 
     private fun testConfig(dataDir: String): AppConfig = AppConfig(
+        devMode = true,
         host = "127.0.0.1",
         port = 8080,
         publicUrl = null,
@@ -162,7 +193,9 @@ class AdminUploadRoutesTest {
         mediaStorageDir = "$dataDir/media",
         mediaPublicBaseUrl = "http://localhost:8080",
         mediaMaxImageBytes = 64,
-        mediaMaxAudioBytes = 128,
+        mediaMaxAudioBytes = 8_192,
+        firebaseBucketName = null,
+        firebaseCredentialsPath = null,
         databaseUrl = "jdbc:h2:file:$dataDir/upload-db;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH",
         databaseUser = "sa",
         databasePassword = "",
@@ -178,4 +211,63 @@ class AdminUploadRoutesTest {
         refreshTokenTtlSeconds = 30 * 24 * 60 * 60L,
         passwordResetTokenTtlSeconds = 60 * 60L,
     )
+
+    private fun createWav(durationMillis: Int): ByteArray {
+        val sampleRate = 8_000
+        val channels = 1
+        val bitsPerSample = 8
+        val bytesPerSample = bitsPerSample / 8
+        val dataSize = sampleRate * durationMillis / 1_000 * channels * bytesPerSample
+        val byteRate = sampleRate * channels * bytesPerSample
+        val blockAlign = channels * bytesPerSample
+        val totalSize = 44 + dataSize
+        val bytes = ByteArray(totalSize)
+
+        writeAscii(bytes, 0, "RIFF")
+        writeIntLe(bytes, 4, totalSize - 8)
+        writeAscii(bytes, 8, "WAVE")
+        writeAscii(bytes, 12, "fmt ")
+        writeIntLe(bytes, 16, 16)
+        writeShortLe(bytes, 20, 1)
+        writeShortLe(bytes, 22, channels)
+        writeIntLe(bytes, 24, sampleRate)
+        writeIntLe(bytes, 28, byteRate)
+        writeShortLe(bytes, 32, blockAlign)
+        writeShortLe(bytes, 34, bitsPerSample)
+        writeAscii(bytes, 36, "data")
+        writeIntLe(bytes, 40, dataSize)
+
+        return bytes
+    }
+
+    private fun createMp3(frameCount: Int): ByteArray {
+        val frameLength = 104
+        val frame = ByteArray(frameLength)
+        frame[0] = 0xFF.toByte()
+        frame[1] = 0xFB.toByte()
+        frame[2] = 0x10.toByte()
+        frame[3] = 0x00.toByte()
+
+        return ByteArray(frameLength * frameCount).also { bytes ->
+            repeat(frameCount) { index ->
+                frame.copyInto(bytes, destinationOffset = index * frameLength)
+            }
+        }
+    }
+
+    private fun writeAscii(target: ByteArray, offset: Int, value: String) {
+        value.encodeToByteArray().copyInto(target, destinationOffset = offset)
+    }
+
+    private fun writeIntLe(target: ByteArray, offset: Int, value: Int) {
+        target[offset] = (value and 0xFF).toByte()
+        target[offset + 1] = ((value shr 8) and 0xFF).toByte()
+        target[offset + 2] = ((value shr 16) and 0xFF).toByte()
+        target[offset + 3] = ((value shr 24) and 0xFF).toByte()
+    }
+
+    private fun writeShortLe(target: ByteArray, offset: Int, value: Int) {
+        target[offset] = (value and 0xFF).toByte()
+        target[offset + 1] = ((value shr 8) and 0xFF).toByte()
+    }
 }

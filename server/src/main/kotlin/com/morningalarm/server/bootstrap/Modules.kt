@@ -16,6 +16,7 @@ import com.morningalarm.server.modules.auth.infra.Pbkdf2PasswordHasher
 import com.morningalarm.server.modules.auth.infra.SecureTokenFactory
 import com.morningalarm.server.modules.media.application.AdminMediaService
 import com.morningalarm.server.modules.media.application.ports.MediaStorage
+import com.morningalarm.server.modules.media.infra.FirebaseMediaStorage
 import com.morningalarm.server.modules.media.infra.LocalDevMediaStorage
 import com.morningalarm.server.modules.ringtone.application.RingtoneService
 import com.morningalarm.server.modules.ringtone.application.ports.RingtoneRepository
@@ -52,10 +53,21 @@ fun createModuleDependencies(config: AppConfig): ModuleDependencies {
     val emailGateway = InMemoryAuthEmailGateway()
     val tokenFactory: TokenFactory = SecureTokenFactory()
     val passwordHasher: PasswordHasher = Pbkdf2PasswordHasher()
-    val mediaStorage: MediaStorage = LocalDevMediaStorage(
-        storageDir = config.mediaStorageDir,
-        publicBaseUrl = config.mediaPublicBaseUrl,
-    )
+    val mediaStorage: MediaStorage = if (config.devMode) {
+        LocalDevMediaStorage(
+            storageDir = config.mediaStorageDir,
+            publicBaseUrl = config.mediaPublicBaseUrl,
+        )
+    } else {
+        FirebaseMediaStorage(
+            credentialsPath = requireNotNull(config.firebaseCredentialsPath) {
+                "SERVER_FIREBASE_CREDENTIALS or GOOGLE_APPLICATION_CREDENTIALS must be set in prod mode"
+            },
+            bucketName = requireNotNull(config.firebaseBucketName) {
+                "SERVER_FIREBASE_BUCKET must be set in prod mode"
+            },
+        )
+    }
     val adminMediaService = AdminMediaService(
         mediaStorage = mediaStorage,
         maxImageBytes = config.mediaMaxImageBytes,

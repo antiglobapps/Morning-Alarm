@@ -1,5 +1,7 @@
 # Gradle files
 .gradle/
+.gradle-local/
+.gradle-user/
 build/
 server/docs/
 
@@ -44,6 +46,10 @@ dist/
 
 # Codex
 .codex/
+
+# Secrets (keep directory, ignore contents except .gitkeep)
+.secrets/*
+!.secrets/.gitkeep
 
 # Server data
 server-data/

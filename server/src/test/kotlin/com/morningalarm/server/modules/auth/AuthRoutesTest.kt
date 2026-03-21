@@ -1,6 +1,7 @@
 package com.morningalarm.server.modules.auth
 
 import com.morningalarm.api.ApiHeaders
+import com.morningalarm.api.auth.DevAdminDefaults
 import com.morningalarm.api.auth.AuthRoutes
 import com.morningalarm.dto.ApiError
 import com.morningalarm.dto.auth.AdminLoginRequestDto
@@ -64,6 +65,64 @@ class AuthRoutesTest {
         )
         assertEquals("first-admin@example.com", result.email)
         assertEquals(com.morningalarm.dto.auth.UserRoleDto.ADMIN.name, session.role.name)
+    }
+
+    @Test
+    fun `bootstrap admin keeps admin role after refresh`() {
+        val service = createService(Files.createTempDirectory("morning-alarm-auth-bootstrap-refresh").toString())
+
+        val result = service.createAdmin(
+            email = "refresh-admin@example.com",
+            displayName = "Refresh Admin",
+        )
+
+        val loginSession = service.loginWithEmail(
+            email = result.email,
+            password = result.temporaryPassword,
+        )
+        val refreshSession = service.refresh(loginSession.refreshToken)
+
+        assertEquals(com.morningalarm.dto.auth.UserRoleDto.ADMIN.name, refreshSession.role.name)
+    }
+
+    @Test
+    fun `dev admin bootstrap creates shared default admin on empty database`() {
+        val service = createService(Files.createTempDirectory("morning-alarm-auth-dev-bootstrap").toString())
+
+        val result = service.createDevAdminIfDatabaseEmpty(
+            email = DevAdminDefaults.EMAIL,
+            password = DevAdminDefaults.PASSWORD,
+            displayName = DevAdminDefaults.DISPLAY_NAME,
+        )
+
+        assertNotNull(result)
+        assertEquals(DevAdminDefaults.EMAIL, result.email)
+        assertEquals(DevAdminDefaults.PASSWORD, result.password)
+
+        val session = service.loginWithEmail(
+            email = DevAdminDefaults.EMAIL,
+            password = DevAdminDefaults.PASSWORD,
+        )
+        assertEquals(com.morningalarm.dto.auth.UserRoleDto.ADMIN.name, session.role.name)
+    }
+
+    @Test
+    fun `dev admin bootstrap does nothing when database already has users`() {
+        val service = createService(Files.createTempDirectory("morning-alarm-auth-dev-bootstrap-existing").toString())
+
+        service.registerWithEmail(
+            email = "user@example.com",
+            password = "very-secret",
+            displayName = "User",
+        )
+
+        val result = service.createDevAdminIfDatabaseEmpty(
+            email = DevAdminDefaults.EMAIL,
+            password = DevAdminDefaults.PASSWORD,
+            displayName = DevAdminDefaults.DISPLAY_NAME,
+        )
+
+        assertEquals(null, result)
     }
 
     @Test
@@ -353,6 +412,7 @@ class AuthRoutesTest {
     }
 
     private fun testConfig(dataDir: String): AppConfig = AppConfig(
+        devMode = true,
         host = "127.0.0.1",
         port = 8080,
         publicUrl = null,
@@ -361,6 +421,8 @@ class AuthRoutesTest {
         mediaPublicBaseUrl = "http://localhost:8080",
         mediaMaxImageBytes = 1024 * 1024,
         mediaMaxAudioBytes = 5 * 1024 * 1024,
+        firebaseBucketName = null,
+        firebaseCredentialsPath = null,
         databaseUrl = "jdbc:h2:file:$dataDir/auth-db;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH",
         databaseUser = "sa",
         databasePassword = "",

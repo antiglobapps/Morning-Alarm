@@ -344,6 +344,7 @@ class RingtoneRoutesTest {
     }
 
     private fun testConfig(dataDir: String): AppConfig = AppConfig(
+        devMode = true,
         host = "127.0.0.1",
         port = 8080,
         publicUrl = null,
@@ -352,6 +353,8 @@ class RingtoneRoutesTest {
         mediaPublicBaseUrl = "http://localhost:8080",
         mediaMaxImageBytes = 1024 * 1024,
         mediaMaxAudioBytes = 5 * 1024 * 1024,
+        firebaseBucketName = null,
+        firebaseCredentialsPath = null,
         databaseUrl = "jdbc:h2:file:$dataDir/ringtone-db;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH",
         databaseUser = "sa",
         databasePassword = "",
