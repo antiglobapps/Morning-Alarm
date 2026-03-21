@@ -1,0 +1,28 @@
+---
+// Analytics and search console verification tags.
+// Values come from PUBLIC_ environment variables (build-time, safe for client).
+// Set via .env file or CI environment — never committed to repo.
+const gaId = import.meta.env.PUBLIC_GA_ID;
+const gscVerification = import.meta.env.PUBLIC_GSC_VERIFICATION;
+const yandexVerification = import.meta.env.PUBLIC_YANDEX_VERIFICATION;
+---
+
+{gscVerification && (
+  <meta name="google-site-verification" content={gscVerification} />
+)}
+
+{yandexVerification && (
+  <meta name="yandex-verification" content={yandexVerification} />
+)}
+
+{gaId && (
+  <>
+    <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}></script>
+    <script define:vars={{ gaId }}>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', gaId);
+    </script>
+  </>
+)}

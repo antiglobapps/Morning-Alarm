@@ -1,0 +1,42 @@
+---
+import Head from '../components/Head.astro';
+import AnalyticsHead from '../components/AnalyticsHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+
+const { frontmatter } = Astro.props;
+const title = frontmatter.title;
+const description = frontmatter.description;
+const canonicalPath = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <Head title={title} description={description} canonicalPath={canonicalPath} ogType="article" />
+    <AnalyticsHead />
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <Header />
+    <main class="flex-1">
+      <article class="max-w-3xl mx-auto px-6 py-16">
+        <h1 class="text-3xl font-bold mb-2">{title}</h1>
+        {frontmatter.lastUpdated && (
+          <p class="text-sm text-morning-on-bg/50 mb-10">
+            Last updated: {frontmatter.lastUpdated}
+          </p>
+        )}
+        <div class="prose prose-neutral max-w-none
+          prose-headings:text-morning-on-bg prose-headings:font-semibold
+          prose-p:text-morning-on-bg/80 prose-p:leading-relaxed
+          prose-a:text-morning-primary prose-a:no-underline hover:prose-a:underline
+          prose-li:text-morning-on-bg/80
+          prose-strong:text-morning-on-bg">
+          <slot />
+        </div>
+      </article>
+    </main>
+    <Footer />
+  </body>
+</html>

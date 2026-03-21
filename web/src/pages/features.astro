@@ -1,0 +1,78 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FeatureCard from '../components/FeatureCard.astro';
+import DownloadButtons from '../components/DownloadButtons.astro';
+import { morningFeatures, nightFeatures } from '../data/features';
+---
+
+<BaseLayout
+  title="Features"
+  description="Discover Morning Alarm features: scene-based alarms, curated melodies, sleep meditations, ambient sounds, and a sleep timer. Two modes — Morning and Night — for every part of your day."
+  canonicalPath="/features"
+>
+  <div class="max-w-5xl mx-auto px-6 pt-16 pb-20">
+    <h1 class="text-4xl font-bold mb-4">Features</h1>
+    <p class="text-lg text-morning-on-bg/60 max-w-2xl mb-16">
+      Two emotional modes designed around your daily rhythm. Morning energizes your wake-up. Night prepares you for restful sleep.
+    </p>
+
+    <!-- Morning -->
+    <section class="mb-16">
+      <div class="flex items-center gap-3 mb-6">
+        <span class="text-3xl">☀</span>
+        <h2 class="text-2xl font-bold">Morning Mode</h2>
+      </div>
+      <div class="grid md:grid-cols-3 gap-6">
+        {morningFeatures.map((f) => (
+          <FeatureCard icon={f.icon} title={f.title} description={f.description} />
+        ))}
+      </div>
+    </section>
+
+    <!-- Night -->
+    <section class="bg-night-bg rounded-3xl p-8 md:p-12 mb-16">
+      <div class="flex items-center gap-3 mb-6">
+        <span class="text-3xl">🌙</span>
+        <h2 class="text-2xl font-bold text-night-on-bg">Night Mode</h2>
+      </div>
+      <div class="grid md:grid-cols-3 gap-6">
+        {nightFeatures.map((f) => (
+          <div class="bg-night-surface rounded-2xl p-6 border border-night-outline-variant/30">
+            <div class="text-3xl mb-4">{f.icon}</div>
+            <h3 class="text-lg font-semibold text-night-on-bg mb-2">{f.title}</h3>
+            <p class="text-sm text-night-on-bg/60 leading-relaxed">{f.description}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Scenarios -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-bold mb-6">Ready-Made Scenarios</h2>
+      <p class="text-morning-on-bg/60 mb-8 max-w-2xl">
+        Every scenario bundles a scene, melody, and mood into one tap. No configuration needed.
+      </p>
+      <div class="grid sm:grid-cols-2 gap-4">
+        {[
+          { name: 'Gentle Sunrise', desc: 'Soft piano over a golden lake. The gentlest way to start your day.', emoji: '🌅' },
+          { name: 'Strong Energy Morning', desc: 'Upbeat nature sounds with bright mountain vistas. For mornings that need momentum.', emoji: '⛰️' },
+          { name: 'Rainy Sleep', desc: 'Steady rain on a window with distant thunder. Fall asleep to nature\'s white noise.', emoji: '🌧️' },
+          { name: 'Deep Calm Night', desc: 'Guided breathing with deep ocean ambience. Quiet your mind before sleep.', emoji: '🌊' },
+        ].map(({ name, desc, emoji }) => (
+          <div class="flex gap-4 items-start bg-white/60 rounded-2xl p-5 border border-morning-outline-variant/30">
+            <span class="text-2xl shrink-0">{emoji}</span>
+            <div>
+              <h3 class="font-semibold text-morning-on-bg">{name}</h3>
+              <p class="text-sm text-morning-on-bg/60 mt-1">{desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <div class="text-center pt-8">
+      <DownloadButtons centered />
+    </div>
+  </div>
+</BaseLayout>

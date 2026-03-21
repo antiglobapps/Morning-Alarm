@@ -1,0 +1,54 @@
+---
+// SEO <head> component — renders title, meta, canonical, OG, Twitter, JSON-LD
+import { site } from '../data/site';
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath: string;
+  ogImage?: string;
+  ogType?: string;
+  jsonLd?: Record<string, unknown>;
+}
+
+const {
+  title,
+  description,
+  canonicalPath,
+  ogImage = '/og-image.png',
+  ogType = 'website',
+  jsonLd,
+} = Astro.props;
+
+const canonicalUrl = new URL(canonicalPath, site.url).href;
+const ogImageUrl = new URL(ogImage, site.url).href;
+const fullTitle = canonicalPath === '/' ? `${site.name} — ${site.tagline}` : `${title} | ${site.name}`;
+---
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{fullTitle}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonicalUrl} />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="generator" content={Astro.generator} />
+
+<!-- Open Graph -->
+<meta property="og:type" content={ogType} />
+<meta property="og:title" content={fullTitle} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonicalUrl} />
+<meta property="og:image" content={ogImageUrl} />
+<meta property="og:site_name" content={site.name} />
+<meta property="og:locale" content="en_US" />
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={fullTitle} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImageUrl} />
+
+<!-- JSON-LD structured data -->
+{jsonLd && (
+  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+)}

@@ -1,6 +1,9 @@
 # Gradle files
 .gradle/
+.gradle-local/
+.gradle-user/
 build/
+server/docs/
 
 # Local configuration file (sdk path, etc)
 local.properties
@@ -32,3 +35,22 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Node.js
+node_modules/
+dist/
+
+# Claude Code local settings (may contain user-specific paths)
+.claude/settings.local.json
+.claude/worktrees/
+
+# Codex
+.codex/
+
+# Secrets (keep directory, ignore contents except .gitkeep)
+.secrets/*
+!.secrets/.gitkeep
+
+# Server data
+server-data/
+xy-app/

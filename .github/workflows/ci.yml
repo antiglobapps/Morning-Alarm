@@ -1,0 +1,295 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "release/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      full_suite: ${{ steps.plan.outputs.full_suite }}
+      run_server: ${{ steps.plan.outputs.run_server }}
+      run_desktop_admin: ${{ steps.plan.outputs.run_desktop_admin }}
+      run_web: ${{ steps.plan.outputs.run_web }}
+      run_design_app: ${{ steps.plan.outputs.run_design_app }}
+      has_android: ${{ steps.plan.outputs.has_android }}
+      has_ios: ${{ steps.plan.outputs.has_ios }}
+      run_android: ${{ steps.plan.outputs.run_android }}
+      run_ios: ${{ steps.plan.outputs.run_ios }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            server:
+              - 'server/**'
+            shared:
+              - 'shared/**'
+            app_shared:
+              - 'app-shared/**'
+            desktop_admin:
+              - 'desktop-admin/**'
+            web:
+              - 'web/**'
+            design_app:
+              - 'design-app/**'
+            android:
+              - 'android/**'
+            ios:
+              - 'ios/**'
+            ci:
+              - '.github/workflows/**'
+              - 'scripts/ci/**'
+            gradle_root:
+              - 'build.gradle.kts'
+              - 'settings.gradle.kts'
+              - 'gradle/**'
+              - 'gradlew'
+              - 'gradlew.bat'
+
+      - name: Build CI execution plan
+        id: plan
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          BASE_REF: ${{ github.base_ref }}
+          SERVER_CHANGED: ${{ steps.changes.outputs.server }}
+          SHARED_CHANGED: ${{ steps.changes.outputs.shared }}
+          APP_SHARED_CHANGED: ${{ steps.changes.outputs.app_shared }}
+          DESKTOP_ADMIN_CHANGED: ${{ steps.changes.outputs.desktop_admin }}
+          WEB_CHANGED: ${{ steps.changes.outputs.web }}
+          DESIGN_APP_CHANGED: ${{ steps.changes.outputs.design_app }}
+          ANDROID_CHANGED: ${{ steps.changes.outputs.android }}
+          IOS_CHANGED: ${{ steps.changes.outputs.ios }}
+          CI_CHANGED: ${{ steps.changes.outputs.ci }}
+          GRADLE_ROOT_CHANGED: ${{ steps.changes.outputs.gradle_root }}
+        run: |
+          set -euo pipefail
+
+          full_suite=false
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            full_suite=true
+          elif [[ "$EVENT_NAME" == "push" && ( "$REF_NAME" == "main" || "$REF_NAME" == release/* ) ]]; then
+            full_suite=true
+          elif [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == release/* ]]; then
+            full_suite=true
+          fi
+
+          has_android=false
+          has_ios=false
+          [[ -d android ]] && has_android=true
+          [[ -d ios ]] && has_ios=true
+
+          run_server=false
+          if [[ "$full_suite" == true || "$SERVER_CHANGED" == true || "$SHARED_CHANGED" == true || "$GRADLE_ROOT_CHANGED" == true || "$CI_CHANGED" == true ]]; then
+            run_server=true
+          fi
+
+          run_desktop_admin=false
+          if [[ "$full_suite" == true || "$DESKTOP_ADMIN_CHANGED" == true || "$SERVER_CHANGED" == true || "$SHARED_CHANGED" == true || "$GRADLE_ROOT_CHANGED" == true || "$CI_CHANGED" == true ]]; then
+            run_desktop_admin=true
+          fi
+
+          run_web=false
+          if [[ "$full_suite" == true || "$WEB_CHANGED" == true || "$CI_CHANGED" == true ]]; then
+            run_web=true
+          fi
+
+          run_design_app=false
+          if [[ "$full_suite" == true || "$DESIGN_APP_CHANGED" == true || "$CI_CHANGED" == true ]]; then
+            run_design_app=true
+          fi
+
+          run_android=false
+          if [[ "$has_android" == true ]] && [[ "$full_suite" == true || "$ANDROID_CHANGED" == true || "$APP_SHARED_CHANGED" == true || "$SHARED_CHANGED" == true || "$SERVER_CHANGED" == true || "$GRADLE_ROOT_CHANGED" == true || "$CI_CHANGED" == true ]]; then
+            run_android=true
+          fi
+
+          run_ios=false
+          if [[ "$has_ios" == true ]] && [[ "$full_suite" == true || "$IOS_CHANGED" == true || "$APP_SHARED_CHANGED" == true || "$SHARED_CHANGED" == true || "$SERVER_CHANGED" == true || "$GRADLE_ROOT_CHANGED" == true || "$CI_CHANGED" == true ]]; then
+            run_ios=true
+          fi
+
+          {
+            echo "full_suite=$full_suite"
+            echo "run_server=$run_server"
+            echo "run_desktop_admin=$run_desktop_admin"
+            echo "run_web=$run_web"
+            echo "run_design_app=$run_design_app"
+            echo "has_android=$has_android"
+            echo "has_ios=$has_ios"
+            echo "run_android=$run_android"
+            echo "run_ios=$run_ios"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Print CI plan
+        shell: bash
+        env:
+          FULL_SUITE: ${{ steps.plan.outputs.full_suite }}
+          RUN_SERVER: ${{ steps.plan.outputs.run_server }}
+          RUN_DESKTOP_ADMIN: ${{ steps.plan.outputs.run_desktop_admin }}
+          RUN_WEB: ${{ steps.plan.outputs.run_web }}
+          RUN_DESIGN_APP: ${{ steps.plan.outputs.run_design_app }}
+          RUN_ANDROID: ${{ steps.plan.outputs.run_android }}
+          RUN_IOS: ${{ steps.plan.outputs.run_ios }}
+        run: |
+          echo "full_suite=$FULL_SUITE"
+          echo "run_server=$RUN_SERVER"
+          echo "run_desktop_admin=$RUN_DESKTOP_ADMIN"
+          echo "run_web=$RUN_WEB"
+          echo "run_design_app=$RUN_DESIGN_APP"
+          echo "run_android=$RUN_ANDROID"
+          echo "run_ios=$RUN_IOS"
+
+  server-checks:
+    name: Server Checks
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_server == 'true'
+    timeout-minutes: 35
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle caching
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x gradlew
+
+      - name: Run shared and server checks
+        run: ./gradlew :shared:check :server:check
+
+      - name: Verify committed OpenAPI artifacts
+        run: git diff --exit-code -- server/src/main/resources/openapi/documentation.yaml server/docs/index.html server/docs/.swagger-codegen/VERSION
+
+  desktop-admin-checks:
+    name: Desktop Admin Checks
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_desktop_admin == 'true'
+    timeout-minutes: 35
+    env:
+      CI_DEV_SERVER_PORT: "8080"
+      CI_DEV_SERVER_WORK_DIR: ${{ runner.temp }}/desktop-admin-server
+      CI_DEV_SERVER_LOG_FILE: ${{ runner.temp }}/desktop-admin-server/server.log
+      CI_DEV_SERVER_PID_FILE: ${{ runner.temp }}/desktop-admin-server/server.pid
+      DESKTOP_ADMIN_SMOKE_ENABLED: "true"
+      DESKTOP_ADMIN_SMOKE_BASE_URL: "http://127.0.0.1:8080"
+      DESKTOP_ADMIN_SMOKE_EMAIL: "admin@example.com"
+      DESKTOP_ADMIN_SMOKE_PASSWORD: "admin12345"
+      DESKTOP_ADMIN_SMOKE_ADMIN_SECRET: "admin-dev-secret"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle caching
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Ensure CI scripts are executable
+        run: chmod +x gradlew scripts/ci/*.sh
+
+      - name: Start isolated dev server
+        run: ./scripts/ci/start-dev-server.sh
+
+      - name: Wait for dev server readiness
+        run: ./scripts/ci/wait-for-server.sh "http://127.0.0.1:8080/health/ready"
+
+      - name: Run desktop-admin checks
+        run: ./gradlew :desktop-admin:check
+
+      - name: Print dev server log on failure
+        if: failure()
+        run: tail -n 200 "$CI_DEV_SERVER_LOG_FILE"
+
+      - name: Stop isolated dev server
+        if: always()
+        run: ./scripts/ci/stop-dev-server.sh
+
+      - name: Upload dev server log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-admin-dev-server-log
+          path: ${{ env.CI_DEV_SERVER_LOG_FILE }}
+          if-no-files-found: ignore
+
+  web-checks:
+    name: Web Checks
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_web == 'true'
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Run web checks
+        working-directory: web
+        run: |
+          npm ci
+          npm run test --if-present
+          npm run build
+
+  design-app-checks:
+    name: Design App Checks
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_design_app == 'true'
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: design-app/package-lock.json
+
+      - name: Run design-app checks
+        working-directory: design-app
+        run: |
+          npm ci
+          npm run test --if-present
+          npm run build

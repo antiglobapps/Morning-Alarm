@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(./gradlew *)",
+      "Bash(mkdir *)",
+      "Bash(ls *)",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git branch*)",
+      "Bash(gh *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | jq -r \".tool_input.file_path // empty\"); PROTECTED=(\"xy-app\" \".git/\" \"local.properties\" \".keystore\" \".jks\" \"google-services.json\"); for pattern in \"${PROTECTED[@]}\"; do if [[ \"$FILE_PATH\" == *\"$pattern\"* ]]; then echo \"Blocked: $FILE_PATH is in protected path \\\"$pattern\\\". xy-app/ is read-only reference.\" >&2; exit 2; fi; done; exit 0'"
+          }
+        ]
+      }
+    ]
+  }
+}
