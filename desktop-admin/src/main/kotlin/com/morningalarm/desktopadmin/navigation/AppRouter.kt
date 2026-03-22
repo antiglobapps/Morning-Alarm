@@ -1,6 +1,7 @@
 package com.morningalarm.desktopadmin.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import com.morningalarm.desktopadmin.ui.login.LoginScreen
 import com.morningalarm.desktopadmin.ui.login.LoginSideEffect
@@ -17,6 +18,10 @@ internal fun AppRouter(navigationController: NavigationController) {
         is Screen.Login -> {
             val viewModel = koinInject<LoginViewModel>()
             val state by viewModel.collectAsState()
+
+            LaunchedEffect(screen.initialError) {
+                viewModel.setError(screen.initialError)
+            }
 
             viewModel.collectSideEffect { sideEffect ->
                 when (sideEffect) {
@@ -36,9 +41,7 @@ internal fun AppRouter(navigationController: NavigationController) {
             DesktopAdminWorkspace(
                 session = screen.session,
                 onLogout = { message ->
-                    val loginViewModel = org.koin.java.KoinJavaComponent.get<LoginViewModel>(LoginViewModel::class.java)
-                    loginViewModel.setError(message)
-                    navigationController.replaceAll(Screen.Login)
+                    navigationController.replaceAll(Screen.Login(initialError = message))
                 },
             )
         }

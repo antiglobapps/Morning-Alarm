@@ -20,7 +20,7 @@ internal data class AdminSession(
 
 @Composable
 fun DesktopAdminApp() {
-    val navigationController = rememberNavigationController(initialScreen = Screen.Login)
+    val navigationController = rememberNavigationController(initialScreen = Screen.Login())
 
     MaterialTheme(
         colorScheme = darkColorScheme(

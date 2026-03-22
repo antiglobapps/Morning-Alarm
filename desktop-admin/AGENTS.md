@@ -161,6 +161,7 @@ desktop-admin/src/test/kotlin/com/morningalarm/desktopadmin/
 - **Repository per domain.** Each domain area (ringtones, users, etc.) gets its own Repository that hides auth and API details from the presentation layer.
 - **Reusable components in `ui/components/`.** Shared UI elements live in `components/` package. When a composable is used from more than one screen, extract it there.
 - **Navigation via `NavigationController`.** All screen transitions go through `NavigationController`. To add a new screen: (1) add a case to `Screen` sealed interface, (2) add a `when`-branch in `AppRouter`, (3) create the screen's ViewModel + Composable in a new `ui/<feature>/` package. Never navigate by manipulating Compose state directly from UI code.
+- **Pass transient screen state through `Screen` arguments.** If one screen must hand off transient state to another screen, such as a logout error or initial banner message, model it as data on the target `Screen` and apply it from `AppRouter`. Do not use Koin/service locator lookups inside routers or composables to fetch another screen's ViewModel and mutate it indirectly.
 
 ### Testing Rules
 

@@ -8,7 +8,7 @@ import com.morningalarm.desktopadmin.ui.AdminSession
  */
 internal sealed interface Screen {
 
-    data object Login : Screen
+    data class Login(val initialError: String? = null) : Screen
 
     data class Workspace(val session: AdminSession) : Screen
 }
