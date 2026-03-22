@@ -27,7 +27,7 @@ Gradle integration: `./gradlew :web:build` delegates to `npm run build`.
 
 - GitHub Actions runs web checks selectively when `web` files or CI workflow/scripts change.
 - The current web CI contract is `npm ci`, `npm run test --if-present`, and `npm run build`.
-- PRs targeting `release/*` always run the full repository suite, including web checks.
+- PRs targeting `main` or `release/*` always run the full repository suite, including web checks.
 
 ## Pages
 

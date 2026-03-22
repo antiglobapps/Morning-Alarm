@@ -145,6 +145,7 @@ desktop-admin/src/test/kotlin/com/morningalarm/desktopadmin/
 ## CI
 
 - GitHub Actions runs desktop-admin checks selectively when `desktop-admin`, `server`, `shared`, root Gradle files, or CI scripts change.
+- PRs targeting `main` or `release/*` always run the full repository suite, including desktop-admin checks.
 - The desktop-admin CI job starts its own isolated local dev server in dev mode and waits for `/health/ready` before running tests.
 - Smoke tests must seed their own data through public/admin HTTP APIs and must not rely on direct database setup.
 - The current live smoke entry point is `data/AdminApiClientLiveSmokeTest.kt`.

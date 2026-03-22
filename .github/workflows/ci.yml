@@ -1,7 +1,12 @@
-name: CI
+name: Repository Checks
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   push:
     branches:
       - main
@@ -91,7 +96,7 @@ jobs:
             full_suite=true
           elif [[ "$EVENT_NAME" == "push" && ( "$REF_NAME" == "main" || "$REF_NAME" == release/* ) ]]; then
             full_suite=true
-          elif [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == release/* ]]; then
+          elif [[ "$EVENT_NAME" == "pull_request" && ( "$BASE_REF" == "main" || "$BASE_REF" == release/* ) ]]; then
             full_suite=true
           fi
 
