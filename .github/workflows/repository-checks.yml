@@ -184,6 +184,8 @@ jobs:
 
       - name: Set up Gradle caching
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/') }}
 
       - name: Ensure Gradle wrapper is executable
         run: chmod +x gradlew
@@ -222,6 +224,8 @@ jobs:
 
       - name: Set up Gradle caching
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/') }}
 
       - name: Ensure CI scripts are executable
         run: chmod +x gradlew scripts/ci/*.sh
