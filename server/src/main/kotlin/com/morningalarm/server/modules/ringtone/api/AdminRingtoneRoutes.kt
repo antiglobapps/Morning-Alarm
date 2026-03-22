@@ -14,7 +14,6 @@ import com.morningalarm.dto.admin.ringtone.ToggleRingtonePremiumResponseDto
 import com.morningalarm.dto.admin.ringtone.UpdateAdminRingtoneRequestDto
 import com.morningalarm.dto.admin.ringtone.UpdateAdminRingtoneResponseDto
 import com.morningalarm.server.modules.ringtone.application.RingtoneService
-import com.morningalarm.server.modules.ringtone.domain.RingtoneVisibility
 import com.morningalarm.server.shared.auth.currentAuthPrincipal
 import com.morningalarm.server.shared.auth.requireAdmin
 import io.ktor.http.HttpStatusCode
@@ -70,7 +69,7 @@ fun Route.configureAdminRingtoneRoutes(ringtoneService: RingtoneService, adminAc
             audioUrl = request.audioUrl,
             durationSeconds = request.durationSeconds,
             description = request.description,
-            visibility = RingtoneVisibility.valueOf(request.visibility.name),
+            visibility = request.visibility.toDomain(),
             isPremium = request.isPremium,
         ).toAdminDetailDto(principal.userId)
         call.respond(HttpStatusCode.Created, CreateAdminRingtoneResponseDto(ringtone))
@@ -88,7 +87,7 @@ fun Route.configureAdminRingtoneRoutes(ringtoneService: RingtoneService, adminAc
             audioUrl = request.audioUrl,
             durationSeconds = request.durationSeconds,
             description = request.description,
-            visibility = RingtoneVisibility.valueOf(request.visibility.name),
+            visibility = request.visibility.toDomain(),
             isPremium = request.isPremium,
         ).toAdminDetailDto(principal.userId)
         call.respond(HttpStatusCode.OK, UpdateAdminRingtoneResponseDto(ringtone))
@@ -106,7 +105,7 @@ fun Route.configureAdminRingtoneRoutes(ringtoneService: RingtoneService, adminAc
         call.requireAdmin(adminAccessSecret)
         val principal = call.currentAuthPrincipal()
         val request = call.receive<SetRingtoneVisibilityRequestDto>()
-        val visibility = RingtoneVisibility.valueOf(request.visibility.name)
+        val visibility = request.visibility.toDomain()
         val ringtone = ringtoneService.setVisibility(principal.userId, call.parameters["ringtoneId"].orEmpty(), visibility)
         call.respond(HttpStatusCode.OK, SetRingtoneVisibilityResponseDto(ringtone.ringtone.id, request.visibility))
     }

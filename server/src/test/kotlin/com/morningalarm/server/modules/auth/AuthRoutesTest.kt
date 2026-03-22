@@ -20,6 +20,7 @@ import com.morningalarm.dto.auth.SocialAuthResponseDto
 import com.morningalarm.dto.auth.SocialProviderDto
 import com.morningalarm.server.bootstrap.AppConfig
 import com.morningalarm.server.bootstrap.createModuleDependencies
+import com.morningalarm.server.modules.auth.application.AdminBootstrapService
 import com.morningalarm.server.modules.auth.application.AuthService
 import com.morningalarm.server.modules.auth.infra.InMemoryAuthEmailGateway
 import com.morningalarm.server.testApp
@@ -45,9 +46,11 @@ import kotlin.test.assertFailsWith
 class AuthRoutesTest {
     @Test
     fun `bootstrap create admin creates first admin with temporary password`() {
-        val service = createService(Files.createTempDirectory("morning-alarm-auth-bootstrap").toString())
+        val dataDir = Files.createTempDirectory("morning-alarm-auth-bootstrap").toString()
+        val bootstrapService = createAdminBootstrapService(dataDir)
+        val authService = createService(dataDir)
 
-        val result = service.createAdmin(
+        val result = bootstrapService.createAdmin(
             email = "first-admin@example.com",
             displayName = "First Admin",
         )
@@ -55,7 +58,7 @@ class AuthRoutesTest {
         assertEquals("first-admin@example.com", result.email)
         assertTrue(result.temporaryPassword.length >= 8)
 
-        val session = service.loginWithEmail(
+        val session = authService.loginWithEmail(
             email = result.email,
             password = result.temporaryPassword,
         )
@@ -65,27 +68,31 @@ class AuthRoutesTest {
 
     @Test
     fun `bootstrap admin keeps admin role after refresh`() {
-        val service = createService(Files.createTempDirectory("morning-alarm-auth-bootstrap-refresh").toString())
+        val dataDir = Files.createTempDirectory("morning-alarm-auth-bootstrap-refresh").toString()
+        val bootstrapService = createAdminBootstrapService(dataDir)
+        val authService = createService(dataDir)
 
-        val result = service.createAdmin(
+        val result = bootstrapService.createAdmin(
             email = "refresh-admin@example.com",
             displayName = "Refresh Admin",
         )
 
-        val loginSession = service.loginWithEmail(
+        val loginSession = authService.loginWithEmail(
             email = result.email,
             password = result.temporaryPassword,
         )
-        val refreshSession = service.refresh(loginSession.refreshToken)
+        val refreshSession = authService.refresh(loginSession.refreshToken)
 
         assertEquals(com.morningalarm.dto.auth.UserRoleDto.ADMIN.name, refreshSession.role.name)
     }
 
     @Test
     fun `dev admin bootstrap creates shared default admin on empty database`() {
-        val service = createService(Files.createTempDirectory("morning-alarm-auth-dev-bootstrap").toString())
+        val dataDir = Files.createTempDirectory("morning-alarm-auth-dev-bootstrap").toString()
+        val bootstrapService = createAdminBootstrapService(dataDir)
+        val authService = createService(dataDir)
 
-        val result = service.createDevAdminIfDatabaseEmpty(
+        val result = bootstrapService.createDevAdminIfDatabaseEmpty(
             email = DevAdminDefaults.EMAIL,
             password = DevAdminDefaults.PASSWORD,
             displayName = DevAdminDefaults.DISPLAY_NAME,
@@ -95,7 +102,7 @@ class AuthRoutesTest {
         assertEquals(DevAdminDefaults.EMAIL, result.email)
         assertEquals(DevAdminDefaults.PASSWORD, result.password)
 
-        val session = service.loginWithEmail(
+        val session = authService.loginWithEmail(
             email = DevAdminDefaults.EMAIL,
             password = DevAdminDefaults.PASSWORD,
         )
@@ -104,15 +111,16 @@ class AuthRoutesTest {
 
     @Test
     fun `dev admin bootstrap does nothing when database already has users`() {
-        val service = createService(Files.createTempDirectory("morning-alarm-auth-dev-bootstrap-existing").toString())
-
-        service.registerWithEmail(
+        val dataDir = Files.createTempDirectory("morning-alarm-auth-dev-bootstrap-existing").toString()
+        val bootstrapService = createAdminBootstrapService(dataDir)
+        val authService = createService(dataDir)
+        authService.registerWithEmail(
             email = "user@example.com",
             password = "very-secret",
             displayName = "User",
         )
 
-        val result = service.createDevAdminIfDatabaseEmpty(
+        val result = bootstrapService.createDevAdminIfDatabaseEmpty(
             email = DevAdminDefaults.EMAIL,
             password = DevAdminDefaults.PASSWORD,
             displayName = DevAdminDefaults.DISPLAY_NAME,
@@ -427,5 +435,9 @@ class AuthRoutesTest {
 
     private fun createService(dataDir: String): AuthService {
         return createModuleDependencies(testConfig(dataDir)).authService
+    }
+
+    private fun createAdminBootstrapService(dataDir: String): AdminBootstrapService {
+        return createModuleDependencies(testConfig(dataDir)).adminBootstrapService
     }
 }

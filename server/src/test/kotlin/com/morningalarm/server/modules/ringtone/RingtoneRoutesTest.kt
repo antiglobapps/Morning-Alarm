@@ -36,6 +36,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import javax.sql.DataSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -289,35 +290,112 @@ class RingtoneRoutesTest {
     }
 
     @Test
-    fun `client list filter returns correct subsets`() = testApplicationWithDependencies { dependencies, client ->
+    fun `client list filter returns correct subsets`() = testApp { dependencies, client ->
         val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
-        val userToken = registerUser(dependencies, "user@example.com").bearerToken
+        val userSession = registerUser(dependencies, "user@example.com")
+        val otherUserSession = registerUser(dependencies, "other@example.com")
 
         createAdminRingtone(client, adminToken, "System Public", visibility = RingtoneVisibilityDto.PUBLIC, isPremium = false)
         createAdminRingtone(client, adminToken, "System Inactive", visibility = RingtoneVisibilityDto.INACTIVE, isPremium = false)
+        val privateUserRingtoneId = createUserRingtone(
+            dataSource = dependencies.dataSource,
+            ownerUserId = userSession.userId,
+            title = "Private User Draft",
+            visibility = RingtoneVisibilityDto.PRIVATE,
+            isPremium = false,
+        )
 
         val allList = client.get("${RingtoneRoutes.LIST}?filter=all") {
-            auth(userToken)
+            auth(userSession.bearerToken)
         }
         assertEquals(HttpStatusCode.OK, allList.status)
-        assertEquals(1, allList.body<RingtoneListResponseDto>().items.size)
+        val allItems = allList.body<RingtoneListResponseDto>().items
+        assertEquals(2, allItems.size)
+        assertTrue(allItems.any { it.id == privateUserRingtoneId && it.source == RingtoneSourceDto.USER && it.isOwnedByCurrentUser })
+        assertTrue(allItems.any { it.source == RingtoneSourceDto.SYSTEM && !it.isOwnedByCurrentUser })
 
         val systemList = client.get("${RingtoneRoutes.LIST}?filter=system") {
-            auth(userToken)
+            auth(userSession.bearerToken)
         }
         assertEquals(HttpStatusCode.OK, systemList.status)
-        assertEquals(1, systemList.body<RingtoneListResponseDto>().items.size)
+        val systemItems = systemList.body<RingtoneListResponseDto>().items
+        assertEquals(1, systemItems.size)
+        assertEquals(RingtoneSourceDto.SYSTEM, systemItems.single().source)
+        assertFalse(systemItems.single().isOwnedByCurrentUser)
 
         val myList = client.get("${RingtoneRoutes.LIST}?filter=my") {
-            auth(userToken)
+            auth(userSession.bearerToken)
         }
         assertEquals(HttpStatusCode.OK, myList.status)
-        assertEquals(0, myList.body<RingtoneListResponseDto>().items.size)
+        val myItems = myList.body<RingtoneListResponseDto>().items
+        assertEquals(1, myItems.size)
+        assertEquals(privateUserRingtoneId, myItems.single().id)
+        assertEquals(RingtoneSourceDto.USER, myItems.single().source)
+        assertTrue(myItems.single().isOwnedByCurrentUser)
+
+        val otherUserAllList = client.get("${RingtoneRoutes.LIST}?filter=all") {
+            auth(otherUserSession.bearerToken)
+        }
+        assertEquals(HttpStatusCode.OK, otherUserAllList.status)
+        val otherUserAllItems = otherUserAllList.body<RingtoneListResponseDto>().items
+        assertEquals(1, otherUserAllItems.size)
+        assertFalse(otherUserAllItems.any { it.id == privateUserRingtoneId })
+
+        val otherUserMyList = client.get("${RingtoneRoutes.LIST}?filter=my") {
+            auth(otherUserSession.bearerToken)
+        }
+        assertEquals(HttpStatusCode.OK, otherUserMyList.status)
+        assertEquals(0, otherUserMyList.body<RingtoneListResponseDto>().items.size)
+
+        val otherUserSystemList = client.get("${RingtoneRoutes.LIST}?filter=system") {
+            auth(otherUserSession.bearerToken)
+        }
+        assertEquals(HttpStatusCode.OK, otherUserSystemList.status)
+        assertEquals(1, otherUserSystemList.body<RingtoneListResponseDto>().items.size)
 
         val invalidFilter = client.get("${RingtoneRoutes.LIST}?filter=invalid") {
-            auth(userToken)
+            auth(userSession.bearerToken)
         }
         assertEquals(HttpStatusCode.BadRequest, invalidFilter.status)
+    }
+
+    private fun createUserRingtone(
+        dataSource: DataSource,
+        ownerUserId: String,
+        title: String,
+        visibility: RingtoneVisibilityDto,
+        isPremium: Boolean,
+    ): String {
+        val slug = title.lowercase().replace(' ', '-')
+        val ringtoneId = "user-$slug-$ownerUserId"
+        val nowEpochSeconds = 1_700_000_000L
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                INSERT INTO ringtones (
+                    id, title, image_url, audio_url, duration_seconds, description,
+                    visibility, is_premium, created_at_epoch_seconds, updated_at_epoch_seconds,
+                    created_by_admin_id, updated_by_admin_id, created_by_user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, ringtoneId)
+                statement.setString(2, title)
+                statement.setString(3, "https://cdn.example.com/ringtones/$slug.jpg")
+                statement.setString(4, "https://cdn.example.com/ringtones/$slug.mp3")
+                statement.setInt(5, 45)
+                statement.setString(6, "$title description")
+                statement.setString(7, visibility.name)
+                statement.setBoolean(8, isPremium)
+                statement.setLong(9, nowEpochSeconds)
+                statement.setLong(10, nowEpochSeconds)
+                statement.setNull(11, java.sql.Types.VARCHAR)
+                statement.setNull(12, java.sql.Types.VARCHAR)
+                statement.setString(13, ownerUserId)
+                statement.executeUpdate()
+            }
+        }
+        return ringtoneId
     }
 
     private suspend fun createAdminRingtone(

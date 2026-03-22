@@ -1,8 +1,12 @@
 package com.morningalarm.server.modules.auth.domain
 
+import com.morningalarm.Email
+import com.morningalarm.EpochSeconds
+import com.morningalarm.UserId
+
 data class AuthUser(
-    val id: String,
-    val email: String?,
+    val id: UserId,
+    val email: Email?,
     val displayName: String?,
     val passwordHash: String?,
     val socialAccounts: Set<SocialAccount>,
@@ -21,11 +25,11 @@ enum class SocialProvider {
 }
 
 data class AuthSession(
-    val userId: String,
+    val userId: UserId,
     val role: UserRole,
     val bearerToken: String,
     val refreshToken: String,
-    val expiresAtEpochSeconds: Long,
+    val expiresAtEpochSeconds: EpochSeconds,
     val isNewUser: Boolean,
 )
 
@@ -36,13 +40,13 @@ enum class UserRole {
 
 data class RefreshTokenRecord(
     val token: String,
-    val userId: String,
-    val expiresAtEpochSeconds: Long,
+    val userId: UserId,
+    val expiresAtEpochSeconds: EpochSeconds,
 )
 
 data class PasswordResetTokenRecord(
     val token: String,
-    val userId: String,
-    val email: String,
-    val expiresAtEpochSeconds: Long,
+    val userId: UserId,
+    val email: Email,
+    val expiresAtEpochSeconds: EpochSeconds,
 )

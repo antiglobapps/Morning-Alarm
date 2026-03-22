@@ -9,6 +9,8 @@ It will be expanded over time.
 - Always write code comments in English.
 - Avoid obvious comments. Comments must explain non-obvious or complex logic, or clarify why a specific line exists when it is not self-evident.
 - Always update the relevant module-level Markdown documentation when adding or changing important project structure or behavior.
+- When researching third-party libraries, frameworks, SDKs, plugins, or external APIs, always use MCP Context7 first to retrieve documentation and examples.
+- If Context7 does not provide enough information, perform web research only on official documentation, official vendor websites, official repositories, or official sample projects.
 
 ## Documentation Maintenance (Global)
 
@@ -26,6 +28,7 @@ Rules:
 - Keep descriptions short and factual.
 - Documentation must be updated in the same change set as the code, not postponed.
 - If no module documentation file exists in the affected area, create one when the change is important enough to require future orientation.
+- If PR/code review comments reveal a critical mistake, architectural pitfall, or recurring anti-pattern, do not limit the fix to code only. Record the lesson as a concrete rule in the relevant module-level `AGENTS.md` so the same class of mistake is less likely to be repeated.
 
 ## Testing Rules (Global)
 

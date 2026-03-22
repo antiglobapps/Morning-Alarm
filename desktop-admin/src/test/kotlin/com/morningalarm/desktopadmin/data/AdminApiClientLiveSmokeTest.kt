@@ -41,7 +41,7 @@ class AdminApiClientLiveSmokeTest {
                     imageUrl = "https://cdn.example.com/ringtones/$suffix.jpg",
                     audioUrl = "https://cdn.example.com/ringtones/$suffix.mp3",
                     durationSeconds = 30,
-                    isActive = true,
+                    visibility = com.morningalarm.dto.ringtone.RingtoneVisibilityDto.PUBLIC,
                     isPremium = false,
                 ),
             )

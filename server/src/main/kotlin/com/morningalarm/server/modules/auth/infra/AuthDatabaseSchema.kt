@@ -1,11 +1,14 @@
 package com.morningalarm.server.modules.auth.infra
 
+import com.morningalarm.server.shared.persistence.SchemaBootstrap
 import javax.sql.DataSource
 
 class AuthDatabaseSchema(
     private val dataSource: DataSource,
-) {
-    fun ensureCreated() {
+) : SchemaBootstrap {
+    override val name: String = "auth"
+
+    override fun ensureCreated() {
         dataSource.connection.use { connection ->
             connection.createStatement().use { statement ->
                 schemaStatements.forEach(statement::execute)

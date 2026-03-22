@@ -1,5 +1,7 @@
 package com.morningalarm.dto.upload
 
+import com.morningalarm.Seconds
+import com.morningalarm.Url
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -11,11 +13,11 @@ enum class MediaKindDto {
 @Serializable
 data class UploadedMediaDto(
     val kind: MediaKindDto,
-    val url: String,
+    val url: Url,
     val fileName: String,
     val contentType: String,
     val sizeBytes: Long,
-    val durationSeconds: Int? = null,
+    val durationSeconds: Seconds? = null,
 )
 
 @Serializable

@@ -1,11 +1,14 @@
 package com.morningalarm.server.modules.user.infra
 
+import com.morningalarm.server.shared.persistence.SchemaBootstrap
 import javax.sql.DataSource
 
 class UserDatabaseSchema(
     private val dataSource: DataSource,
-) {
-    fun ensureCreated() {
+) : SchemaBootstrap {
+    override val name: String = "user"
+
+    override fun ensureCreated() {
         dataSource.connection.use { connection ->
             connection.createStatement().use { statement ->
                 statement.execute(

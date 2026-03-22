@@ -36,6 +36,36 @@ Rule of dependencies:
 - `infra` implements ports and depends on external libs.
 - `api` depends on `application` and DTO mappers.
 
+## 1.1) Target Server Architecture
+
+The server must stay a **modular monolith** with **ports and adapters**.
+
+Preferred structure:
+- `bootstrap/` owns application startup, plugin installation, environment config, and dependency wiring only.
+- `modules/<feature>/api` owns HTTP transport only: parse request, call use case/service, map response DTO.
+- `modules/<feature>/application` owns business use cases, orchestration, validation that belongs to the use case, and transaction boundaries.
+- Server-only bootstrap flows must be separated from regular HTTP-facing application services when they represent different responsibilities. For example, admin bootstrap/promotion lifecycle should not live inside the same service that handles user login, register, refresh, and reset-password flows.
+- Inside auth application code, prefer scenario services over a single broad service. Keep `AuthService` as a thin facade if it exists at all, and move email auth, social auth, admin login, and session issuance support into focused classes.
+- `modules/<feature>/application/ports` defines interfaces for persistence, token services, storage, email, clocks, and other external dependencies.
+- `modules/<feature>/domain` owns pure business models and rules with no Ktor/JDBC/storage dependencies.
+- `modules/<feature>/infra` owns JDBC, filesystem, Firebase, JWT, and other external adapter implementations.
+- `shared/` owns cross-cutting server concerns such as auth context, tracing, error mapping, docs, audit, rate limiting, and reusable persistence helpers.
+
+## 1.2) Critically Important Architecture Rules
+
+These rules are mandatory:
+- Route handlers must stay thin. No business rules, JDBC, file IO, or multi-step orchestration in `api/`.
+- Any use case that changes state through more than one repository or port must run inside an explicit transaction boundary in the `application` layer.
+- Repositories must not open their own unrelated transactions for every step when the enclosing use case requires atomicity.
+- JDBC repositories must use the shared `JdbcSessionManager` instead of opening ad-hoc `DataSource` connections directly, so they can participate in the same transaction scope when needed.
+- `infra` may map persistence models and execute SQL, but it must not decide business behavior that belongs to the use case.
+- Do not bypass `application` from `api/` to call infra adapters directly.
+- Prefer small focused use-case classes or focused services. If a service starts accumulating unrelated flows, split it by scenario instead of growing a god-service.
+- Keep environment-specific branching in `bootstrap` or dedicated adapters, not in domain models.
+- Shared DTOs from the `shared` module are transport contracts only. Do not move business logic into DTOs.
+- Startup schema bootstrap is temporary infrastructure. Until migrations are introduced, schema changes must be backward-considered for local/dev databases and verified by tests.
+- Schema bootstrap order must stay centralized in one server-level bootstrap coordinator. Do not scatter module schema initialization calls across random startup code.
+
 ---
 
 ## 2) Libraries Used (Server)
@@ -55,6 +85,12 @@ Notes:
 - Errors are normalized to `ApiError` (from `shared` module).
 - Request ID is enforced by CallId.
 - Local server builds use a Java 21 Gradle toolchain.
+
+## 2.1) Test Strategy
+
+- Keep HTTP route tests for transport behavior, auth/access control, and end-to-end request/response shape.
+- Add repository and service tests for business invariants that are easier to validate below HTTP, especially token lifecycle, persistence mapping, transaction rollback, and cross-repository consistency.
+- Prefer one focused test per invariant over large route tests that duplicate the same logic through the transport layer.
 
 ---
 
@@ -110,6 +146,7 @@ docker compose up --build
 Database migrations policy:
 - Do not add migration files yet.
 - Until a dedicated release-preparation command is given, schema evolution should stay in bootstrap schema initialization only.
+- Treat the current approach as a pre-migration strategy: module schemas may evolve only through backward-safe bootstrap steps, in a centralized order, with explicit tests for legacy compatibility and idempotent startup.
 - Migration tooling will be introduced later as a separate release-preparation task.
 
 ---
@@ -250,6 +287,17 @@ Minimum coverage for each endpoint:
 - boundary and edge cases for important input variations
 
 It is not acceptable to add only one happy-path test for a new endpoint. Tests must describe the full behavioral contract of the server call.
+
+Critical testing rules:
+- Every server behavior change must update or extend tests in the same change set.
+- If logic changes, existing tests must be edited to reflect the new contract; leaving stale tests is not acceptable.
+- New use cases should be covered at the most appropriate level:
+  - pure/domain logic -> unit tests
+  - application orchestration and transaction behavior -> service/use-case tests
+  - HTTP contracts -> route/integration tests with `testApplication`
+- Repositories and persistence-heavy rules should have focused tests when correctness depends on SQL filtering, transaction handling, or edge-case persistence behavior.
+- Mapper files in `modules/*/api/*Mapper.kt` must have direct unit tests when they define transport-contract mapping between domain/application models and shared DTOs or enums. Do not rely only on route tests for mapper safety.
+- Avoid direct database writes in endpoint tests unless there is no public server API to create the required fixture. When direct DB setup is unavoidable, isolate it in small fixture helpers inside the test file.
 
 Client integration jobs in CI may also boot the real server in dev mode via `scripts/ci/`.
 Those jobs must wait for `/health/ready` and prepare their fixtures through server APIs instead of direct database writes.

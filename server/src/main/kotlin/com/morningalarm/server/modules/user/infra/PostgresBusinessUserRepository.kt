@@ -3,13 +3,13 @@ package com.morningalarm.server.modules.user.infra
 import com.morningalarm.server.modules.auth.application.ports.BusinessUserRepository
 import com.morningalarm.server.modules.auth.domain.UserRole
 import com.morningalarm.server.modules.user.domain.BusinessUser
-import javax.sql.DataSource
+import com.morningalarm.server.shared.persistence.JdbcSessionManager
 
 class PostgresBusinessUserRepository(
-    private val dataSource: DataSource,
+    private val sessionManager: JdbcSessionManager,
 ) : BusinessUserRepository {
     override fun findById(id: String): BusinessUser? {
-        return dataSource.connection.use { connection ->
+        return sessionManager.withConnection { connection ->
             connection.prepareStatement(
                 """
                 SELECT id, email, display_name, role
@@ -35,7 +35,7 @@ class PostgresBusinessUserRepository(
     }
 
     override fun findByEmail(email: String): BusinessUser? {
-        return dataSource.connection.use { connection ->
+        return sessionManager.withConnection { connection ->
             connection.prepareStatement(
                 """
                 SELECT id, email, display_name, role
@@ -58,7 +58,7 @@ class PostgresBusinessUserRepository(
     }
 
     override fun updateRole(userId: String, role: UserRole) {
-        dataSource.connection.use { connection ->
+        sessionManager.withConnection { connection ->
             connection.prepareStatement(
                 """
                 UPDATE business_users SET role = ? WHERE id = ?
@@ -72,44 +72,46 @@ class PostgresBusinessUserRepository(
     }
 
     override fun ensureUser(id: String, email: String?, displayName: String?, role: UserRole): BusinessUser {
-        val existing = findById(id)
-        if (existing == null) {
-            dataSource.connection.use { connection ->
-                connection.prepareStatement(
-                    """
-                    INSERT INTO business_users (id, email, display_name, role)
-                    VALUES (?, ?, ?, ?)
-                    """.trimIndent(),
-                ).use { statement ->
-                    statement.setString(1, id)
-                    statement.setString(2, email)
-                    statement.setString(3, displayName)
-                    statement.setString(4, role.name)
-                    statement.executeUpdate()
+        return sessionManager.inTransaction {
+            val existing = findById(id)
+            if (existing == null) {
+                sessionManager.withConnection { connection ->
+                    connection.prepareStatement(
+                        """
+                        INSERT INTO business_users (id, email, display_name, role)
+                        VALUES (?, ?, ?, ?)
+                        """.trimIndent(),
+                    ).use { statement ->
+                        statement.setString(1, id)
+                        statement.setString(2, email)
+                        statement.setString(3, displayName)
+                        statement.setString(4, role.name)
+                        statement.executeUpdate()
+                    }
                 }
+                return@inTransaction BusinessUser(id, email, displayName, role)
             }
-            return BusinessUser(id, email, displayName, role)
-        }
 
-        if (existing.email != email || existing.displayName != displayName || existing.role != role) {
-            dataSource.connection.use { connection ->
-                connection.prepareStatement(
-                    """
-                    UPDATE business_users
-                    SET email = ?, display_name = ?, role = ?
-                    WHERE id = ?
-                    """.trimIndent(),
-                ).use { statement ->
-                    statement.setString(1, email)
-                    statement.setString(2, displayName)
-                    statement.setString(3, role.name)
-                    statement.setString(4, id)
-                    statement.executeUpdate()
+            if (existing.email != email || existing.displayName != displayName || existing.role != role) {
+                sessionManager.withConnection { connection ->
+                    connection.prepareStatement(
+                        """
+                        UPDATE business_users
+                        SET email = ?, display_name = ?, role = ?
+                        WHERE id = ?
+                        """.trimIndent(),
+                    ).use { statement ->
+                        statement.setString(1, email)
+                        statement.setString(2, displayName)
+                        statement.setString(3, role.name)
+                        statement.setString(4, id)
+                        statement.executeUpdate()
+                    }
                 }
+                return@inTransaction BusinessUser(id, email, displayName, role)
             }
-            return BusinessUser(id, email, displayName, role)
-        }
 
-        return existing
+            existing
+        }
     }
 }
