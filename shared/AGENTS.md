@@ -82,18 +82,21 @@ Implemented admin endpoints and contracts:
 - `DELETE /api/v1/admin/ringtones/{ringtoneId}` — delete ringtone
 - `GET /api/v1/admin/ringtones/{ringtoneId}/preview` — get preview data for a user-facing ringtone card
 - `GET /api/v1/admin/ringtones/client-preview` — get the ringtone list as it should look to users
-- `POST /api/v1/admin/ringtones/{ringtoneId}/active-toggle` — toggle active status
+- `PUT /api/v1/admin/ringtones/{ringtoneId}/visibility` — set ringtone visibility
 - `POST /api/v1/admin/ringtones/{ringtoneId}/premium-toggle` — toggle premium status
 
 Key DTOs:
-- `AdminRingtoneListItemDto` — admin list row with media URLs, activation, premium state, and likes count
+- `AdminRingtoneListItemDto` — admin list row with media URLs, visibility, premium state, and likes count
 - `AdminRingtoneDetailDto` — full admin ringtone detail with embedded user-card preview
+- `AdminRingtoneListResponseDto`
+- `AdminRingtoneDetailResponseDto`
 - `CreateAdminRingtoneRequestDto` / `CreateAdminRingtoneResponseDto`
 - `UpdateAdminRingtoneRequestDto` / `UpdateAdminRingtoneResponseDto`
 - `DeleteAdminRingtoneResponseDto`
 - `AdminRingtonePreviewResponseDto`
 - `AdminRingtoneClientListPreviewResponseDto`
-- `ToggleRingtoneActiveResponseDto`
+- `SetRingtoneVisibilityRequestDto`
+- `SetRingtoneVisibilityResponseDto`
 - `ToggleRingtonePremiumResponseDto`
 
 Admin ringtone model fields:
@@ -102,7 +105,7 @@ Admin ringtone model fields:
 - `imageUrl`
 - `audioUrl`
 - `durationSeconds`
-- `isActive`
+- `visibility` (`INACTIVE`, `PRIVATE`, `PUBLIC`)
 - `isPremium`
 - `likesCount`
 - `createdAtEpochSeconds`

@@ -36,7 +36,6 @@ Rules:
 - For server calls, always add tests for success cases, validation errors, auth/access errors, conflict/not-found cases, and important edge cases when they exist.
 - Any API change must update and regenerate the OpenAPI/Swagger schema in the same change set.
 - Do not create database migrations until the user explicitly gives a release-preparation command.
-- Pull requests targeting `main` must run the full repository CI suite instead of selective checks only. Keep workflow logic and module documentation in sync with this rule.
 
 ## Product Concept
 
