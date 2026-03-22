@@ -299,8 +299,7 @@ Critical testing rules:
 - Mapper files in `modules/*/api/*Mapper.kt` must have direct unit tests when they define transport-contract mapping between domain/application models and shared DTOs or enums. Do not rely only on route tests for mapper safety.
 - Avoid direct database writes in endpoint tests unless there is no public server API to create the required fixture. When direct DB setup is unavoidable, isolate it in small fixture helpers inside the test file.
 
-Client integration jobs in CI may also boot the real server in dev mode via `scripts/ci/`.
-Those jobs must wait for `/health/ready` and prepare their fixtures through server APIs instead of direct database writes.
+When a live integration check boots the real server in dev mode, wait for `/health/ready` and prepare fixtures through server APIs instead of direct database writes.
 
 ## 10.1) OpenAPI / Swagger Rule
 
@@ -437,7 +436,7 @@ Events logged:
 - `PASSWORD_RESET_REQUESTED` — password reset email triggered.
 - `PASSWORD_RESET_CONFIRMED` — password changed via reset token.
 - `SESSIONS_REVOKED` — all refresh tokens invalidated for a user.
-- `RINGTONE_CREATED/UPDATED/DELETED/ACTIVE_TOGGLED/PREMIUM_TOGGLED` — ringtone CRUD by admin.
+- `RINGTONE_CREATED/UPDATED/DELETED/VISIBILITY_CHANGED/PREMIUM_TOGGLED` — ringtone CRUD by admin.
 - `MEDIA_UPLOADED` — image or audio file uploaded by admin.
 
 ### Admin Login Brute-Force Protection

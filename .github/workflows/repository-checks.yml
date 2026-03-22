@@ -1,7 +1,12 @@
-name: CI
+name: Repository Checks
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   push:
     branches:
       - main
@@ -91,7 +96,7 @@ jobs:
             full_suite=true
           elif [[ "$EVENT_NAME" == "push" && ( "$REF_NAME" == "main" || "$REF_NAME" == release/* ) ]]; then
             full_suite=true
-          elif [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == release/* ]]; then
+          elif [[ "$EVENT_NAME" == "pull_request" && ( "$BASE_REF" == "main" || "$BASE_REF" == release/* ) ]]; then
             full_suite=true
           fi
 
@@ -179,6 +184,8 @@ jobs:
 
       - name: Set up Gradle caching
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/') }}
 
       - name: Ensure Gradle wrapper is executable
         run: chmod +x gradlew
@@ -192,14 +199,16 @@ jobs:
   desktop-admin-checks:
     name: Desktop Admin Checks
     runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.run_desktop_admin == 'true'
+    needs:
+      - detect-changes
+      - server-checks
+    if: needs.detect-changes.outputs.run_desktop_admin == 'true' && needs.server-checks.result == 'success'
     timeout-minutes: 35
     env:
       CI_DEV_SERVER_PORT: "8080"
-      CI_DEV_SERVER_WORK_DIR: ${{ runner.temp }}/desktop-admin-server
-      CI_DEV_SERVER_LOG_FILE: ${{ runner.temp }}/desktop-admin-server/server.log
-      CI_DEV_SERVER_PID_FILE: ${{ runner.temp }}/desktop-admin-server/server.pid
+      CI_DEV_SERVER_WORK_DIR: ${{ github.workspace }}/.ci/desktop-admin-server
+      CI_DEV_SERVER_LOG_FILE: ${{ github.workspace }}/.ci/desktop-admin-server/server.log
+      CI_DEV_SERVER_PID_FILE: ${{ github.workspace }}/.ci/desktop-admin-server/server.pid
       DESKTOP_ADMIN_SMOKE_ENABLED: "true"
       DESKTOP_ADMIN_SMOKE_BASE_URL: "http://127.0.0.1:8080"
       DESKTOP_ADMIN_SMOKE_EMAIL: "admin@example.com"
@@ -217,6 +226,8 @@ jobs:
 
       - name: Set up Gradle caching
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/') }}
 
       - name: Ensure CI scripts are executable
         run: chmod +x gradlew scripts/ci/*.sh

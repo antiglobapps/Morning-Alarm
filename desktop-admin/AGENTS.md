@@ -114,7 +114,7 @@ desktop-admin/src/main/kotlin/com/morningalarm/desktopadmin/
 desktop-admin/src/test/kotlin/com/morningalarm/desktopadmin/
 ├── TestFixtures.kt                          — Shared fakes, test data factories
 ├── data/
-│   └── AdminApiClientLiveSmokeTest.kt      — CI-only live smoke test
+│   └── AdminApiClientLiveSmokeTest.kt      — Opt-in live smoke test against a running dev server
 ├── navigation/
 │   └── NavigationControllerTest.kt         — Back stack unit tests
 └── ui/
@@ -142,13 +142,6 @@ desktop-admin/src/test/kotlin/com/morningalarm/desktopadmin/
   - client-visible ringtone list preview
   - inline playback controls for audio preview
 
-## CI
-
-- GitHub Actions runs desktop-admin checks selectively when `desktop-admin`, `server`, `shared`, root Gradle files, or CI scripts change.
-- The desktop-admin CI job starts its own isolated local dev server in dev mode and waits for `/health/ready` before running tests.
-- Smoke tests must seed their own data through public/admin HTTP APIs and must not rely on direct database setup.
-- The current live smoke entry point is `data/AdminApiClientLiveSmokeTest.kt`.
-
 ## Rules
 
 ### Architecture Rules
@@ -167,10 +160,11 @@ desktop-admin/src/test/kotlin/com/morningalarm/desktopadmin/
 
 - **All new features must be covered by tests.** Every new ViewModel, Repository, or non-trivial utility must have corresponding unit tests.
 - **Tests must be updated when code changes.** If you modify a ViewModel's behavior, state shape, or side effects — update the relevant tests in the same task.
-- **orbit-test for ViewModel tests.** Use `viewModel.test(this) { expectInitialState(); ... }` pattern. Verify state transitions with `expectState { copy(...) }` and side effects with `expectSideEffect(...)`. Remember: `postSideEffect` happens BEFORE the `finally` block in `executeWithErrorHandling`, so `expectSideEffect` must come before the final `expectState { copy(isBusy = false) }`.
+- **orbit-test for ViewModel tests.** Initial state is auto-checked by default, so do not call deprecated `expectInitialState()`. Use `viewModel.test(this) { ... }` with `expectState { copy(...) }` and `expectSideEffect(...)` for regular flows. If a test must assert the initial state explicitly, use `settings = TestSettings(autoCheckInitialState = false)` and then `awaitState()` or `expectState`. Remember: `postSideEffect` happens BEFORE the `finally` block in `executeWithErrorHandling`, so `expectSideEffect` must come before the final `expectState { copy(isBusy = false) }`.
 - **Hand-rolled fakes, not mocks.** Follow the `FakeAdminRingtoneRepository` pattern in `TestFixtures.kt`. Create fake implementations with call counters and `shouldFail` error injection. Do not use Mockk or Mockito.
 - **Test fixtures in `TestFixtures.kt`.** Shared test data factories (`testRingtoneDetail()`, `testRingtoneListItem()`, etc.) and fakes live in a single `TestFixtures.kt` file.
-- **Smoke tests are CI-only.** Live integration tests (e.g. `AdminApiClientLiveSmokeTest`) are gated by `DESKTOP_ADMIN_SMOKE_ENABLED` env var and require a running dev server.
+- **Smoke tests are opt-in.** Live integration tests (e.g. `AdminApiClientLiveSmokeTest`) are gated by `DESKTOP_ADMIN_SMOKE_ENABLED` and require a running dev server.
+- **Smoke tests must behave like external clients.** When a live smoke test needs fixtures, create them through public/admin HTTP APIs instead of direct database setup.
 
 ### General Rules
 
