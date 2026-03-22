@@ -1,5 +1,17 @@
 package com.morningalarm.server.modules.ringtone.domain
 
+enum class RingtoneVisibility {
+    INACTIVE,
+    PRIVATE,
+    PUBLIC,
+}
+
+enum class RingtoneListFilter {
+    ALL,
+    MY,
+    SYSTEM,
+}
+
 data class Ringtone(
     val id: String,
     val title: String,
@@ -7,12 +19,13 @@ data class Ringtone(
     val audioUrl: String,
     val durationSeconds: Int,
     val description: String,
-    val isActive: Boolean,
+    val visibility: RingtoneVisibility,
     val isPremium: Boolean,
     val createdAtEpochSeconds: Long,
     val updatedAtEpochSeconds: Long,
-    val createdByAdminId: String,
-    val updatedByAdminId: String,
+    val createdByAdminId: String?,
+    val updatedByAdminId: String?,
+    val createdByUserId: String?,
 )
 
 data class RingtoneView(

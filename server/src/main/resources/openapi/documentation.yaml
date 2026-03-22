@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Morning Alarm Server API
-  version: 1.4.0
+  version: 1.5.0
   description: |
     Current server API for Morning Alarm.
     Any API change must update this OpenAPI schema in the same change set.
@@ -242,12 +242,21 @@ paths:
     get:
       tags: [Ringtones]
       operationId: listRingtones
-      summary: Get active ringtone list for current user
+      summary: Get visible ringtone list for current user
       security:
         - bearerAuth: []
+      parameters:
+        - name: filter
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, my, system]
+            default: all
+          description: "Filter ringtones: all (public + own private), my (user's own), system (admin-created public)"
       responses:
         '200':
-          description: Active ringtone list
+          description: Filtered ringtone list
           headers:
             X-Request-Id:
               $ref: '#/components/headers/RequestId'
@@ -489,26 +498,32 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
-  /api/v1/admin/ringtones/{ringtoneId}/active-toggle:
-    post:
+  /api/v1/admin/ringtones/{ringtoneId}/visibility:
+    put:
       tags: [Admin Ringtones]
-      operationId: toggleAdminRingtoneActive
-      summary: Toggle active status of a ringtone
+      operationId: setAdminRingtoneVisibility
+      summary: Set visibility of a ringtone (INACTIVE, PRIVATE, PUBLIC)
       security:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/RingtoneId'
         - $ref: '#/components/parameters/AdminSecretHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRingtoneVisibilityRequest'
       responses:
         '200':
-          description: Current active state
+          description: Updated visibility state
           headers:
             X-Request-Id:
               $ref: '#/components/headers/RequestId'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ToggleRingtoneActiveResponse'
+                $ref: '#/components/schemas/SetRingtoneVisibilityResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -824,9 +839,15 @@ components:
       properties:
         session:
           $ref: '#/components/schemas/AuthSession'
+    RingtoneVisibility:
+      type: string
+      enum: [INACTIVE, PRIVATE, PUBLIC]
+    RingtoneSource:
+      type: string
+      enum: [SYSTEM, USER]
     RingtoneItem:
       type: object
-      required: [id, title, imageUrl, audioUrl, durationSeconds, description, isPremium, likesCount, isLikedByUser]
+      required: [id, title, imageUrl, audioUrl, durationSeconds, description, isPremium, likesCount, isLikedByUser, source, isOwnedByCurrentUser]
       properties:
         id:
           type: string
@@ -847,6 +868,10 @@ components:
         likesCount:
           type: integer
         isLikedByUser:
+          type: boolean
+        source:
+          $ref: '#/components/schemas/RingtoneSource'
+        isOwnedByCurrentUser:
           type: boolean
     RingtoneListResponse:
       type: object
@@ -874,7 +899,7 @@ components:
           type: integer
     AdminRingtoneListItem:
       type: object
-      required: [id, title, description, imageUrl, audioUrl, durationSeconds, isActive, isPremium, likesCount, createdAtEpochSeconds, updatedAtEpochSeconds]
+      required: [id, title, description, imageUrl, audioUrl, durationSeconds, visibility, isPremium, likesCount, createdAtEpochSeconds, updatedAtEpochSeconds]
       properties:
         id:
           type: string
@@ -890,8 +915,8 @@ components:
           format: uri
         durationSeconds:
           type: integer
-        isActive:
-          type: boolean
+        visibility:
+          $ref: '#/components/schemas/RingtoneVisibility'
         isPremium:
           type: boolean
         likesCount:
@@ -902,6 +927,12 @@ components:
         updatedAtEpochSeconds:
           type: integer
           format: int64
+        createdByAdminId:
+          type: string
+          nullable: true
+        createdByUserId:
+          type: string
+          nullable: true
     AdminRingtoneDetail:
       allOf:
         - $ref: '#/components/schemas/AdminRingtoneListItem'
@@ -926,7 +957,7 @@ components:
           $ref: '#/components/schemas/AdminRingtoneDetail'
     CreateAdminRingtoneRequest:
       type: object
-      required: [title, description, imageUrl, audioUrl, durationSeconds, isActive, isPremium]
+      required: [title, description, imageUrl, audioUrl, durationSeconds, visibility, isPremium]
       properties:
         title:
           type: string
@@ -940,8 +971,8 @@ components:
           format: uri
         durationSeconds:
           type: integer
-        isActive:
-          type: boolean
+        visibility:
+          $ref: '#/components/schemas/RingtoneVisibility'
         isPremium:
           type: boolean
     CreateAdminRingtoneResponse:
@@ -952,7 +983,7 @@ components:
           $ref: '#/components/schemas/AdminRingtoneDetail'
     UpdateAdminRingtoneRequest:
       type: object
-      required: [title, description, imageUrl, audioUrl, durationSeconds, isActive, isPremium]
+      required: [title, description, imageUrl, audioUrl, durationSeconds, visibility, isPremium]
       properties:
         title:
           type: string
@@ -966,8 +997,8 @@ components:
           format: uri
         durationSeconds:
           type: integer
-        isActive:
-          type: boolean
+        visibility:
+          $ref: '#/components/schemas/RingtoneVisibility'
         isPremium:
           type: boolean
     UpdateAdminRingtoneResponse:
@@ -1000,14 +1031,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RingtoneItem'
-    ToggleRingtoneActiveResponse:
+    SetRingtoneVisibilityRequest:
       type: object
-      required: [ringtoneId, isActive]
+      required: [visibility]
+      properties:
+        visibility:
+          $ref: '#/components/schemas/RingtoneVisibility'
+    SetRingtoneVisibilityResponse:
+      type: object
+      required: [ringtoneId, visibility]
       properties:
         ringtoneId:
           type: string
-        isActive:
-          type: boolean
+        visibility:
+          $ref: '#/components/schemas/RingtoneVisibility'
     ToggleRingtonePremiumResponse:
       type: object
       required: [ringtoneId, isPremium]

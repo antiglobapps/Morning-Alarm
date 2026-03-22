@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.morningalarm.dto.ringtone.RingtoneVisibilityDto
 
 @Composable
 internal fun RingtoneForm(
@@ -34,7 +35,7 @@ internal fun RingtoneForm(
     onUploadAudio: () -> Unit,
     onSave: () -> Unit,
     onDelete: (() -> Unit)?,
-    onToggleActive: (() -> Unit)?,
+    onSetVisibility: ((RingtoneVisibilityDto) -> Unit)?,
     onTogglePremium: (() -> Unit)?,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -81,14 +82,20 @@ internal fun RingtoneForm(
             color = Color(0xFF94A3B8),
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = draft.isActive,
-                    onCheckedChange = { onDraftChange(draft.copy(isActive = it)) },
-                )
-                Text("Active")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Visibility:")
+            RingtoneVisibilityDto.entries.forEach { visibility ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = draft.visibility == visibility,
+                        onCheckedChange = { if (it) onDraftChange(draft.copy(visibility = visibility)) },
+                    )
+                    Text(visibility.name.lowercase().replaceFirstChar { it.uppercase() })
+                }
             }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(
                     checked = draft.isPremium,
@@ -107,10 +114,14 @@ internal fun RingtoneForm(
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             }
-            if (onToggleActive != null) {
-                TextButton(onClick = onToggleActive) {
-                    Text(if (draft.isActive) "Deactivate" else "Activate")
-                }
+            if (onSetVisibility != null) {
+                RingtoneVisibilityDto.entries
+                    .filter { it != draft.visibility }
+                    .forEach { targetVisibility ->
+                        TextButton(onClick = { onSetVisibility(targetVisibility) }) {
+                            Text("Set ${targetVisibility.name.lowercase().replaceFirstChar { it.uppercase() }}")
+                        }
+                    }
             }
             if (onTogglePremium != null) {
                 TextButton(onClick = onTogglePremium) {

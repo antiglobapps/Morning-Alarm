@@ -18,7 +18,7 @@ sealed class AuditEvent {
     data class RingtoneCreated(val ringtoneId: String, val title: String, val adminId: String) : AuditEvent()
     data class RingtoneUpdated(val ringtoneId: String, val title: String, val adminId: String) : AuditEvent()
     data class RingtoneDeleted(val ringtoneId: String, val adminId: String) : AuditEvent()
-    data class RingtoneActiveToggled(val ringtoneId: String, val isActive: Boolean, val adminId: String) : AuditEvent()
+    data class RingtoneVisibilityChanged(val ringtoneId: String, val visibility: String, val adminId: String) : AuditEvent()
     data class RingtonePremiumToggled(val ringtoneId: String, val isPremium: Boolean, val adminId: String) : AuditEvent()
 
     // Media uploads

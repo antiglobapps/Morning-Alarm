@@ -17,12 +17,13 @@ class RingtoneDatabaseSchema(
                         audio_url TEXT NOT NULL,
                         duration_seconds INTEGER NOT NULL,
                         description TEXT NOT NULL,
-                        is_active BOOLEAN NOT NULL,
+                        visibility VARCHAR(32) NOT NULL,
                         is_premium BOOLEAN NOT NULL,
                         created_at_epoch_seconds BIGINT NOT NULL,
                         updated_at_epoch_seconds BIGINT NOT NULL,
-                        created_by_admin_id VARCHAR(128) NOT NULL REFERENCES business_users(id),
-                        updated_by_admin_id VARCHAR(128) NOT NULL REFERENCES business_users(id)
+                        created_by_admin_id VARCHAR(128) REFERENCES business_users(id),
+                        updated_by_admin_id VARCHAR(128) REFERENCES business_users(id),
+                        created_by_user_id VARCHAR(128) REFERENCES business_users(id)
                     )
                     """.trimIndent(),
                 )
@@ -36,7 +37,8 @@ class RingtoneDatabaseSchema(
                     """.trimIndent(),
                 )
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_user_ringtone_likes_ringtone_id ON user_ringtone_likes(ringtone_id)")
-                statement.execute("CREATE INDEX IF NOT EXISTS idx_ringtones_is_active ON ringtones(is_active)")
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_ringtones_visibility ON ringtones(visibility)")
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_ringtones_created_by_user_id ON ringtones(created_by_user_id)")
             }
         }
     }

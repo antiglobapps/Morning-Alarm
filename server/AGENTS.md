@@ -319,8 +319,8 @@ Rules:
 - Admin role is assigned by server configuration through `SERVER_ADMIN_EMAILS`.
 
 Implemented ringtone module:
-- `GET /api/v1/ringtones` — authenticated client list of active ringtones only
-- `GET /api/v1/ringtones/{ringtoneId}` — authenticated client detail for active ringtone only
+- `GET /api/v1/ringtones?filter=all|my|system` — authenticated client list (PUBLIC + own PRIVATE by default)
+- `GET /api/v1/ringtones/{ringtoneId}` — authenticated client detail (PUBLIC or own PRIVATE)
 - `POST /api/v1/ringtones/{ringtoneId}/like-toggle` — authenticated like toggle for current user
 - `GET /api/v1/admin/ringtones` — admin list of all ringtones
 - `GET /api/v1/admin/ringtones/{ringtoneId}` — admin detail
@@ -329,7 +329,7 @@ Implemented ringtone module:
 - `DELETE /api/v1/admin/ringtones/{ringtoneId}` — admin delete
 - `GET /api/v1/admin/ringtones/{ringtoneId}/preview` — admin preview of user-facing ringtone card
 - `GET /api/v1/admin/ringtones/client-preview` — admin preview of current client-visible ringtone list
-- `POST /api/v1/admin/ringtones/{ringtoneId}/active-toggle` — admin toggle active state
+- `PUT /api/v1/admin/ringtones/{ringtoneId}/visibility` — admin set visibility (INACTIVE/PRIVATE/PUBLIC)
 - `POST /api/v1/admin/ringtones/{ringtoneId}/premium-toggle` — admin toggle premium state
 
 Ringtone entity fields:
@@ -338,17 +338,35 @@ Ringtone entity fields:
 - `audioUrl` (absolute URL)
 - `durationSeconds`
 - `description`
-- `isActive`
+- `visibility` (enum: INACTIVE, PRIVATE, PUBLIC)
 - `isPremium`
 - `createdAtEpochSeconds`
 - `updatedAtEpochSeconds`
-- `createdByAdminId`
-- `updatedByAdminId`
+- `createdByAdminId` (nullable — set for admin-created ringtones)
+- `updatedByAdminId` (nullable — set when admin modifies a ringtone)
+- `createdByUserId` (nullable — set for user-created ringtones)
+
+Visibility rules:
+- `PUBLIC` — visible to all users in client API
+- `PRIVATE` — visible only to the user who created it (`createdByUserId`)
+- `INACTIVE` — hidden from client API, visible only in admin panel
+- Admin can change visibility of any ringtone via `PUT .../visibility`
+- User-created ringtones start as `PRIVATE`; admin can share them to all via `PRIVATE → PUBLIC`
+
+Client list filters (`?filter=`):
+- `all` (default) — PUBLIC ringtones + current user's own PRIVATE ringtones
+- `my` — only ringtones created by current user (any non-INACTIVE visibility)
+- `system` — only PUBLIC admin-created ringtones (createdByUserId IS NULL)
+
+Client DTO includes:
+- `source` (SYSTEM or USER) — whether ringtone was created by admin or user
+- `isOwnedByCurrentUser` — whether current user created this ringtone
 
 Like behavior:
 - A user can like or unlike a ringtone through the same toggle endpoint.
 - Client list/detail responses must include both `likesCount` and `isLikedByUser`.
-- Inactive ringtones are hidden from client list/detail/like endpoints.
+- INACTIVE ringtones are hidden from client list/detail/like endpoints.
+- PRIVATE ringtones are only accessible to their owner.
 - Admin list/detail responses include full content-management state and counts.
 
 ## 14) Security — Audit Logging, Brute-Force Protection, Recovery

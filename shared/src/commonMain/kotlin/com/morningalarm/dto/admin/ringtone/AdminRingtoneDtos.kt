@@ -1,6 +1,7 @@
 package com.morningalarm.dto.admin.ringtone
 
 import com.morningalarm.dto.ringtone.RingtoneListItemDto
+import com.morningalarm.dto.ringtone.RingtoneVisibilityDto
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -11,11 +12,13 @@ data class AdminRingtoneListItemDto(
     val imageUrl: String,
     val audioUrl: String,
     val durationSeconds: Int,
-    val isActive: Boolean,
+    val visibility: RingtoneVisibilityDto,
     val isPremium: Boolean,
     val likesCount: Int,
     val createdAtEpochSeconds: Long,
     val updatedAtEpochSeconds: Long,
+    val createdByAdminId: String?,
+    val createdByUserId: String?,
 )
 
 @Serializable
@@ -26,11 +29,13 @@ data class AdminRingtoneDetailDto(
     val imageUrl: String,
     val audioUrl: String,
     val durationSeconds: Int,
-    val isActive: Boolean,
+    val visibility: RingtoneVisibilityDto,
     val isPremium: Boolean,
     val likesCount: Int,
     val createdAtEpochSeconds: Long,
     val updatedAtEpochSeconds: Long,
+    val createdByAdminId: String?,
+    val createdByUserId: String?,
     val preview: RingtoneListItemDto,
 )
 
@@ -51,7 +56,7 @@ data class CreateAdminRingtoneRequestDto(
     val imageUrl: String,
     val audioUrl: String,
     val durationSeconds: Int,
-    val isActive: Boolean,
+    val visibility: RingtoneVisibilityDto,
     val isPremium: Boolean,
 )
 
@@ -67,7 +72,7 @@ data class UpdateAdminRingtoneRequestDto(
     val imageUrl: String,
     val audioUrl: String,
     val durationSeconds: Int,
-    val isActive: Boolean,
+    val visibility: RingtoneVisibilityDto,
     val isPremium: Boolean,
 )
 
@@ -94,9 +99,14 @@ data class AdminRingtoneClientListPreviewResponseDto(
 )
 
 @Serializable
-data class ToggleRingtoneActiveResponseDto(
+data class SetRingtoneVisibilityRequestDto(
+    val visibility: RingtoneVisibilityDto,
+)
+
+@Serializable
+data class SetRingtoneVisibilityResponseDto(
     val ringtoneId: String,
-    val isActive: Boolean,
+    val visibility: RingtoneVisibilityDto,
 )
 
 @Serializable

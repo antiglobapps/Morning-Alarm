@@ -47,7 +47,9 @@ import com.morningalarm.desktopadmin.data.SessionExpiredException
 import com.morningalarm.desktopadmin.media.DesktopMediaPlaybackController
 import com.morningalarm.desktopadmin.media.toPlayableMediaOrNull
 import com.morningalarm.dto.admin.ringtone.AdminRingtoneListItemDto
+import com.morningalarm.dto.admin.ringtone.SetRingtoneVisibilityRequestDto
 import com.morningalarm.dto.ringtone.RingtoneListItemDto
+import com.morningalarm.dto.ringtone.RingtoneVisibilityDto
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.swing.JFileChooser
@@ -308,17 +310,18 @@ internal fun DesktopAdminWorkspace(
                         } else {
                             null
                         },
-                        onToggleActive = if (draft.id != null) {
-                            {
+                        onSetVisibility = if (draft.id != null) {
+                            { targetVisibility ->
                                 scope.launch {
                                     execute {
                                         val ringtoneId = draft.id ?: throw ApiClientException("Save ringtone first")
-                                        val result = apiClient.toggleActive(
+                                        val result = apiClient.setVisibility(
                                             session.authSession.bearerToken,
                                             session.adminSecret,
                                             ringtoneId,
+                                            SetRingtoneVisibilityRequestDto(targetVisibility),
                                         )
-                                        draft = draft.copy(isActive = result.isActive)
+                                        draft = draft.copy(visibility = result.visibility)
                                         reloadList()
                                         selectedPreview = apiClient.getPreview(
                                             session.authSession.bearerToken,
@@ -421,8 +424,19 @@ private fun RingtoneListRow(
         Text(item.title, fontWeight = FontWeight.SemiBold)
         Text(item.description, color = Color(0xFF94A3B8), maxLines = 2)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Badge(if (item.isActive) "Active" else "Draft", if (item.isActive) Color(0xFF1F7A4D) else Color(0xFF5C3B00))
+            val visibilityLabel = when (item.visibility) {
+                RingtoneVisibilityDto.PUBLIC -> "Public"
+                RingtoneVisibilityDto.PRIVATE -> "Private"
+                RingtoneVisibilityDto.INACTIVE -> "Inactive"
+            }
+            val visibilityColor = when (item.visibility) {
+                RingtoneVisibilityDto.PUBLIC -> Color(0xFF1F7A4D)
+                RingtoneVisibilityDto.PRIVATE -> Color(0xFF5C3B00)
+                RingtoneVisibilityDto.INACTIVE -> Color(0xFF4A4A4A)
+            }
+            Badge(visibilityLabel, visibilityColor)
             if (item.isPremium) Badge("Premium", Color(0xFF334E8D))
+            if (item.createdByUserId != null) Badge("User-created", Color(0xFF6B3FA0))
             Badge("${item.likesCount} likes", Color(0xFF2C3443))
         }
     }

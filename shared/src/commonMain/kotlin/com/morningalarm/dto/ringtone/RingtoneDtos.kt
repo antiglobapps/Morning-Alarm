@@ -3,6 +3,19 @@ package com.morningalarm.dto.ringtone
 import kotlinx.serialization.Serializable
 
 @Serializable
+enum class RingtoneVisibilityDto {
+    INACTIVE,
+    PRIVATE,
+    PUBLIC,
+}
+
+@Serializable
+enum class RingtoneSourceDto {
+    SYSTEM,
+    USER,
+}
+
+@Serializable
 data class RingtoneListItemDto(
     val id: String,
     val title: String,
@@ -13,6 +26,8 @@ data class RingtoneListItemDto(
     val isPremium: Boolean,
     val likesCount: Int,
     val isLikedByUser: Boolean,
+    val source: RingtoneSourceDto,
+    val isOwnedByCurrentUser: Boolean,
 )
 
 @Serializable
