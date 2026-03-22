@@ -25,8 +25,6 @@ class WorkspaceViewModelTest {
     @Test
     fun `onCreate loads ringtones and client preview`() = runTest {
         createViewModel().test(this) {
-            expectInitialState()
-
             runOnCreate()
 
             expectState { copy(isBusy = true) }
@@ -43,8 +41,6 @@ class WorkspaceViewModelTest {
     @Test
     fun `refresh reloads ringtones and client preview`() = runTest {
         createViewModel().test(this) {
-            expectInitialState()
-
             containerHost.refresh()
 
             expectState { copy(isBusy = true) }
@@ -61,8 +57,6 @@ class WorkspaceViewModelTest {
     @Test
     fun `updateSearchQuery changes search query`() = runTest {
         createViewModel().test(this) {
-            expectInitialState()
-
             containerHost.updateSearchQuery("sunrise")
 
             expectState { copy(searchQuery = "sunrise") }
@@ -74,8 +68,6 @@ class WorkspaceViewModelTest {
         val detail = testRingtoneDetail()
 
         createViewModel().test(this) {
-            expectInitialState()
-
             containerHost.selectRingtone("ringtone-1")
 
             expectState { copy(isBusy = true) }
@@ -114,8 +106,6 @@ class WorkspaceViewModelTest {
     @Test
     fun `updateDraft changes draft`() = runTest {
         createViewModel().test(this) {
-            expectInitialState()
-
             val newDraft = RingtoneDraft(title = "New Title")
             containerHost.updateDraft(newDraft)
 
@@ -233,8 +223,6 @@ class WorkspaceViewModelTest {
     @Test
     fun `delete does nothing when no ringtone selected`() = runTest {
         createViewModel().test(this) {
-            expectInitialState()
-
             containerHost.delete()
             // No state changes or side effects expected
         }
@@ -301,8 +289,6 @@ class WorkspaceViewModelTest {
     @Test
     fun `uploadImage updates draft imageUrl`() = runTest {
         createViewModel().test(this) {
-            expectInitialState()
-
             containerHost.uploadImage(File("photo.jpg"))
 
             expectState { copy(isBusy = true) }
@@ -317,8 +303,6 @@ class WorkspaceViewModelTest {
     @Test
     fun `uploadAudio updates draft audioUrl and duration`() = runTest {
         createViewModel().test(this) {
-            expectInitialState()
-
             containerHost.uploadAudio(File("song.mp3"))
 
             expectState { copy(isBusy = true) }
@@ -342,8 +326,6 @@ class WorkspaceViewModelTest {
         fakeRepo.shouldFail = RuntimeException("Network error")
 
         createViewModel().test(this) {
-            expectInitialState()
-
             containerHost.refresh()
 
             expectState { copy(isBusy = true) }
@@ -357,8 +339,6 @@ class WorkspaceViewModelTest {
         fakeRepo.shouldFail = SessionExpiredException()
 
         createViewModel().test(this) {
-            expectInitialState()
-
             containerHost.refresh()
 
             expectState { copy(isBusy = true) }
