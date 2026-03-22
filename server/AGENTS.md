@@ -296,6 +296,7 @@ Critical testing rules:
   - application orchestration and transaction behavior -> service/use-case tests
   - HTTP contracts -> route/integration tests with `testApplication`
 - Repositories and persistence-heavy rules should have focused tests when correctness depends on SQL filtering, transaction handling, or edge-case persistence behavior.
+- Mapper files in `modules/*/api/*Mapper.kt` must have direct unit tests when they define transport-contract mapping between domain/application models and shared DTOs or enums. Do not rely only on route tests for mapper safety.
 - Avoid direct database writes in endpoint tests unless there is no public server API to create the required fixture. When direct DB setup is unavoidable, isolate it in small fixture helpers inside the test file.
 
 Client integration jobs in CI may also boot the real server in dev mode via `scripts/ci/`.
