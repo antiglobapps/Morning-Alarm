@@ -48,7 +48,7 @@ private fun handleBootstrapCommand(args: Array<String>, config: AppConfig) {
             val displayName = findArgValue(args, "--display-name")
 
             withDependencies(config) { dependencies ->
-                val result = dependencies.authService.createAdmin(email, displayName)
+                val result = dependencies.adminBootstrapService.createAdmin(email, displayName)
                 println("SUCCESS: Admin user '${result.email}' (id=${result.userId}) has been created")
                 println("TEMPORARY_PASSWORD: ${result.temporaryPassword}")
                 println("ACTION_REQUIRED: Rotate the temporary password after the first admin login")
@@ -59,7 +59,7 @@ private fun handleBootstrapCommand(args: Array<String>, config: AppConfig) {
             validateBootstrapSecret(config, secret)
 
             withDependencies(config) { dependencies ->
-                val userId = dependencies.authService.promoteToAdmin(email)
+                val userId = dependencies.adminBootstrapService.promoteToAdmin(email)
                 println("SUCCESS: User '$email' (id=$userId) has been promoted to ADMIN role")
             }
         }
@@ -111,7 +111,7 @@ private fun createDevAdminIfNeeded(config: AppConfig, dependencies: ModuleDepend
         return
     }
 
-    val result = dependencies.authService.createDevAdminIfDatabaseEmpty(
+    val result = dependencies.adminBootstrapService.createDevAdminIfDatabaseEmpty(
         email = DevAdminDefaults.EMAIL,
         password = DevAdminDefaults.PASSWORD,
         displayName = DevAdminDefaults.DISPLAY_NAME,

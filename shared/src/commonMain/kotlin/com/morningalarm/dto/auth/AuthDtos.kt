@@ -1,5 +1,8 @@
 package com.morningalarm.dto.auth
 
+import com.morningalarm.Email
+import com.morningalarm.EpochSeconds
+import com.morningalarm.UserId
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -18,11 +21,11 @@ enum class UserRoleDto {
 
 @Serializable
 data class AuthSessionDto(
-    val userId: String,
+    val userId: UserId,
     val role: UserRoleDto,
     val bearerToken: String,
     val refreshToken: String,
-    val expiresAtEpochSeconds: Long,
+    val expiresAtEpochSeconds: EpochSeconds,
     val isNewUser: Boolean,
 )
 
@@ -30,7 +33,7 @@ data class AuthSessionDto(
 data class SocialAuthRequestDto(
     val provider: SocialProviderDto,
     val token: String,
-    val email: String? = null,
+    val email: Email? = null,
     val displayName: String? = null,
 )
 
@@ -41,7 +44,7 @@ data class SocialAuthResponseDto(
 
 @Serializable
 data class EmailRegisterRequestDto(
-    val email: String,
+    val email: Email,
     val password: String,
     val displayName: String? = null,
 )
@@ -53,7 +56,7 @@ data class EmailRegisterResponseDto(
 
 @Serializable
 data class EmailLoginRequestDto(
-    val email: String,
+    val email: Email,
     val password: String,
 )
 
@@ -64,12 +67,12 @@ data class EmailLoginResponseDto(
 
 @Serializable
 data class PasswordResetRequestDto(
-    val email: String,
+    val email: Email,
 )
 
 @Serializable
 data class PasswordResetRequestResponseDto(
-    val email: String,
+    val email: Email,
     val resetRequested: Boolean,
 )
 
@@ -96,7 +99,7 @@ data class RefreshTokenResponseDto(
 
 @Serializable
 data class AdminLoginRequestDto(
-    val email: String,
+    val email: Email,
     val password: String,
     val adminSecret: String,
 )

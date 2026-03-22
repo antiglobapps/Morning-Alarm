@@ -9,6 +9,8 @@ It will be expanded over time.
 - Always write code comments in English.
 - Avoid obvious comments. Comments must explain non-obvious or complex logic, or clarify why a specific line exists when it is not self-evident.
 - Always update the relevant module-level Markdown documentation when adding or changing important project structure or behavior.
+- When researching third-party libraries, frameworks, SDKs, plugins, or external APIs, always use MCP Context7 first to retrieve documentation and examples.
+- If Context7 does not provide enough information, perform web research only on official documentation, official vendor websites, official repositories, or official sample projects.
 
 ## Documentation Maintenance (Global)
 

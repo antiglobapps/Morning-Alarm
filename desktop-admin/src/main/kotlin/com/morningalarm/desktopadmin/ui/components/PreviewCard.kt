@@ -1,4 +1,4 @@
-package com.morningalarm.desktopadmin.ui
+package com.morningalarm.desktopadmin.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement

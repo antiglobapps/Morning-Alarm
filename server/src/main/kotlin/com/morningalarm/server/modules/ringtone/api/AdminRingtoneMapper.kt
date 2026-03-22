@@ -4,6 +4,7 @@ import com.morningalarm.dto.admin.ringtone.AdminRingtoneDetailDto
 import com.morningalarm.dto.admin.ringtone.AdminRingtoneListItemDto
 import com.morningalarm.dto.ringtone.RingtoneSourceDto
 import com.morningalarm.dto.ringtone.RingtoneVisibilityDto
+import com.morningalarm.server.modules.ringtone.domain.RingtoneVisibility
 import com.morningalarm.server.modules.ringtone.domain.RingtoneView
 
 fun RingtoneView.toAdminListItemDto(): AdminRingtoneListItemDto = AdminRingtoneListItemDto(
@@ -13,7 +14,7 @@ fun RingtoneView.toAdminListItemDto(): AdminRingtoneListItemDto = AdminRingtoneL
     imageUrl = ringtone.imageUrl,
     audioUrl = ringtone.audioUrl,
     durationSeconds = ringtone.durationSeconds,
-    visibility = RingtoneVisibilityDto.valueOf(ringtone.visibility.name),
+    visibility = ringtone.visibility.toDto(),
     isPremium = ringtone.isPremium,
     likesCount = likesCount,
     createdAtEpochSeconds = ringtone.createdAtEpochSeconds,
@@ -29,7 +30,7 @@ fun RingtoneView.toAdminDetailDto(adminUserId: String): AdminRingtoneDetailDto =
     imageUrl = ringtone.imageUrl,
     audioUrl = ringtone.audioUrl,
     durationSeconds = ringtone.durationSeconds,
-    visibility = RingtoneVisibilityDto.valueOf(ringtone.visibility.name),
+    visibility = ringtone.visibility.toDto(),
     isPremium = ringtone.isPremium,
     likesCount = likesCount,
     createdAtEpochSeconds = ringtone.createdAtEpochSeconds,
@@ -38,3 +39,15 @@ fun RingtoneView.toAdminDetailDto(adminUserId: String): AdminRingtoneDetailDto =
     createdByUserId = ringtone.createdByUserId,
     preview = toDto(adminUserId),
 )
+
+fun RingtoneVisibility.toDto(): RingtoneVisibilityDto = when (this) {
+    RingtoneVisibility.INACTIVE -> RingtoneVisibilityDto.INACTIVE
+    RingtoneVisibility.PRIVATE -> RingtoneVisibilityDto.PRIVATE
+    RingtoneVisibility.PUBLIC -> RingtoneVisibilityDto.PUBLIC
+}
+
+fun RingtoneVisibilityDto.toDomain(): RingtoneVisibility = when (this) {
+    RingtoneVisibilityDto.INACTIVE -> RingtoneVisibility.INACTIVE
+    RingtoneVisibilityDto.PRIVATE -> RingtoneVisibility.PRIVATE
+    RingtoneVisibilityDto.PUBLIC -> RingtoneVisibility.PUBLIC
+}

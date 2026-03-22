@@ -103,16 +103,16 @@ class RingtoneService(
     }
 
     fun setVisibility(adminUserId: String, ringtoneId: String, visibility: RingtoneVisibility): RingtoneView {
-        val existing = detailForAdmin(ringtoneId).ringtone
-        val view = ringtoneRepository.update(
-            existing.copy(
+        val existingView = detailForAdmin(ringtoneId)
+        val ringtone = ringtoneRepository.update(
+            existingView.ringtone.copy(
                 visibility = visibility,
                 updatedAtEpochSeconds = nowEpochSeconds(),
                 updatedByAdminId = requireAdminUserId(adminUserId),
             ),
         ) ?: throw NotFoundException("Ringtone not found: $ringtoneId")
         auditLogger.log(AuditEvent.RingtoneVisibilityChanged(ringtoneId = ringtoneId, visibility = visibility.name, adminId = adminUserId))
-        return view
+        return ringtone.toAdminView(likesCount = existingView.likesCount)
     }
 
     fun togglePremium(adminUserId: String, ringtoneId: String): RingtoneView {

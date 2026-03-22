@@ -1,6 +1,11 @@
 package com.morningalarm.server.bootstrap
 
+import com.morningalarm.server.modules.auth.application.AdminBootstrapService
+import com.morningalarm.server.modules.auth.application.AdminLoginService
 import com.morningalarm.server.modules.auth.application.AuthService
+import com.morningalarm.server.modules.auth.application.AuthSessionManager
+import com.morningalarm.server.modules.auth.application.EmailAuthService
+import com.morningalarm.server.modules.auth.application.SocialAuthService
 import com.morningalarm.server.modules.auth.application.ports.AccessTokenService
 import com.morningalarm.server.modules.auth.application.ports.AuthEmailGateway
 import com.morningalarm.server.modules.auth.application.ports.AuthUserRepository
@@ -27,12 +32,14 @@ import com.morningalarm.server.modules.user.infra.UserDatabaseSchema
 import com.morningalarm.server.shared.audit.AuditLogger
 import com.morningalarm.server.shared.audit.Slf4jAuditLogger
 import com.morningalarm.server.shared.auth.JwtAccessTokenService
+import com.morningalarm.server.shared.persistence.JdbcSessionManager
 import com.morningalarm.server.shared.ratelimit.BruteForceProtector
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 
 data class ModuleDependencies(
+    val adminBootstrapService: AdminBootstrapService,
     val authService: AuthService,
     val authUserRepository: AuthUserRepository,
     val businessUserRepository: BusinessUserRepository,
@@ -46,14 +53,19 @@ data class ModuleDependencies(
 
 fun createModuleDependencies(config: AppConfig): ModuleDependencies {
     val dataSource = createDataSource(config)
-    AuthDatabaseSchema(dataSource).ensureCreated()
-    UserDatabaseSchema(dataSource).ensureCreated()
-    RingtoneDatabaseSchema(dataSource).ensureCreated()
+    ServerSchemaBootstrap(
+        steps = listOf(
+            AuthDatabaseSchema(dataSource),
+            UserDatabaseSchema(dataSource),
+            RingtoneDatabaseSchema(dataSource),
+        ),
+    ).ensureCreated()
 
+    val sessionManager = JdbcSessionManager(dataSource)
     val auditLogger: AuditLogger = Slf4jAuditLogger()
     val clock: Clock = JavaClock()
-    val repository: AuthUserRepository = PostgresAuthUserRepository(dataSource)
-    val businessUserRepository: BusinessUserRepository = PostgresBusinessUserRepository(dataSource)
+    val repository: AuthUserRepository = PostgresAuthUserRepository(sessionManager)
+    val businessUserRepository: BusinessUserRepository = PostgresBusinessUserRepository(sessionManager)
     val emailGateway = InMemoryAuthEmailGateway()
     val tokenFactory: TokenFactory = SecureTokenFactory()
     val passwordHasher: PasswordHasher = Pbkdf2PasswordHasher()
@@ -83,7 +95,7 @@ fun createModuleDependencies(config: AppConfig): ModuleDependencies {
         issuer = config.jwtIssuer,
         audience = config.jwtAudience,
     )
-    val ringtoneRepository: RingtoneRepository = PostgresRingtoneRepository(dataSource)
+    val ringtoneRepository: RingtoneRepository = PostgresRingtoneRepository(sessionManager)
 
     // Brute-force protection for admin login: limited attempts within a sliding window
     val adminLoginBruteForce = BruteForceProtector(
@@ -91,20 +103,48 @@ fun createModuleDependencies(config: AppConfig): ModuleDependencies {
         windowSeconds = config.adminLoginWindowSeconds,
     )
 
-    val authService = AuthService(
+    val authSessionManager = AuthSessionManager(
         authUserRepository = repository,
         businessUserRepository = businessUserRepository,
-        authEmailGateway = emailGateway,
         tokenFactory = tokenFactory,
         accessTokenService = accessTokenService,
-        passwordHasher = passwordHasher,
         clock = clock,
         adminEmails = config.adminEmails,
         accessTokenTtlSeconds = config.accessTokenTtlSeconds,
         refreshTokenTtlSeconds = config.refreshTokenTtlSeconds,
+    )
+    val emailAuthService = EmailAuthService(
+        authUserRepository = repository,
+        authEmailGateway = emailGateway,
+        tokenFactory = tokenFactory,
+        passwordHasher = passwordHasher,
+        auditLogger = auditLogger,
+        transactionRunner = sessionManager,
+        sessionManager = authSessionManager,
         passwordResetTokenTtlSeconds = config.passwordResetTokenTtlSeconds,
+    )
+    val adminLoginService = AdminLoginService(
+        emailAuthService = emailAuthService,
         auditLogger = auditLogger,
         adminLoginBruteForce = adminLoginBruteForce,
+    )
+    val authService = AuthService(
+        adminLoginService = adminLoginService,
+        socialAuthService = SocialAuthService(
+            authUserRepository = repository,
+            tokenFactory = tokenFactory,
+            transactionRunner = sessionManager,
+            sessionManager = authSessionManager,
+        ),
+        emailAuthService = emailAuthService,
+    )
+    val adminBootstrapService = AdminBootstrapService(
+        authUserRepository = repository,
+        businessUserRepository = businessUserRepository,
+        tokenFactory = tokenFactory,
+        passwordHasher = passwordHasher,
+        auditLogger = auditLogger,
+        transactionRunner = sessionManager,
     )
     val ringtoneService = RingtoneService(
         ringtoneRepository = ringtoneRepository,
@@ -114,6 +154,7 @@ fun createModuleDependencies(config: AppConfig): ModuleDependencies {
     )
 
     return ModuleDependencies(
+        adminBootstrapService = adminBootstrapService,
         authService = authService,
         authUserRepository = repository,
         businessUserRepository = businessUserRepository,

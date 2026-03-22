@@ -6,7 +6,7 @@ import com.morningalarm.server.modules.ringtone.domain.RingtoneListFilter
 import com.morningalarm.server.modules.ringtone.domain.RingtoneLikeToggleResult
 import com.morningalarm.server.modules.ringtone.domain.RingtoneView
 import com.morningalarm.server.modules.ringtone.domain.RingtoneVisibility
-import javax.sql.DataSource
+import com.morningalarm.server.shared.persistence.JdbcSessionManager
 
 private const val SELECT_COLUMNS = """
     r.id, r.title, r.image_url, r.audio_url, r.duration_seconds, r.description,
@@ -21,7 +21,7 @@ private const val GROUP_BY_COLUMNS = """
 """
 
 class PostgresRingtoneRepository(
-    private val dataSource: DataSource,
+    private val sessionManager: JdbcSessionManager,
 ) : RingtoneRepository {
     override fun listForUser(userId: String, filter: RingtoneListFilter): List<RingtoneView> {
         val whereClause = when (filter) {
@@ -33,7 +33,7 @@ class PostgresRingtoneRepository(
                 "WHERE r.visibility = 'PUBLIC' AND r.created_by_user_id IS NULL"
         }
 
-        return dataSource.connection.use { connection ->
+        return sessionManager.withConnection { connection ->
             connection.prepareStatement(
                 """
                 SELECT
@@ -67,7 +67,7 @@ class PostgresRingtoneRepository(
     }
 
     override fun findForUser(userId: String, ringtoneId: String): RingtoneView? {
-        return dataSource.connection.use { connection ->
+        return sessionManager.withConnection { connection ->
             connection.prepareStatement(
                 """
                 SELECT
@@ -94,7 +94,7 @@ class PostgresRingtoneRepository(
     }
 
     override fun listForAdmin(): List<RingtoneView> {
-        return dataSource.connection.use { connection ->
+        return sessionManager.withConnection { connection ->
             connection.prepareStatement(
                 """
                 SELECT
@@ -117,7 +117,7 @@ class PostgresRingtoneRepository(
     }
 
     override fun findForAdmin(ringtoneId: String): RingtoneView? {
-        return dataSource.connection.use { connection ->
+        return sessionManager.withConnection { connection ->
             connection.prepareStatement(
                 """
                 SELECT
@@ -139,7 +139,7 @@ class PostgresRingtoneRepository(
     }
 
     override fun create(ringtone: Ringtone): Ringtone {
-        dataSource.connection.use { connection ->
+        sessionManager.withConnection { connection ->
             connection.prepareStatement(
                 """
                 INSERT INTO ringtones (
@@ -169,7 +169,7 @@ class PostgresRingtoneRepository(
     }
 
     override fun update(ringtone: Ringtone): Ringtone? {
-        val updated = dataSource.connection.use { connection ->
+        val updated = sessionManager.withConnection { connection ->
             connection.prepareStatement(
                 """
                 UPDATE ringtones
@@ -196,7 +196,7 @@ class PostgresRingtoneRepository(
     }
 
     override fun delete(ringtoneId: String): Boolean {
-        return dataSource.connection.use { connection ->
+        return sessionManager.withConnection { connection ->
             connection.prepareStatement("DELETE FROM ringtones WHERE id = ?").use { statement ->
                 statement.setString(1, ringtoneId)
                 statement.executeUpdate() > 0
@@ -205,9 +205,8 @@ class PostgresRingtoneRepository(
     }
 
     override fun toggleLike(userId: String, ringtoneId: String): RingtoneLikeToggleResult? {
-        dataSource.connection.use { connection ->
-            connection.autoCommit = false
-            try {
+        return sessionManager.inTransaction {
+            sessionManager.withConnection { connection ->
                 val exists = connection.prepareStatement(
                     """
                     SELECT 1 FROM ringtones
@@ -219,8 +218,7 @@ class PostgresRingtoneRepository(
                     statement.executeQuery().use { it.next() }
                 }
                 if (!exists) {
-                    connection.rollback()
-                    return null
+                    return@withConnection null
                 }
 
                 val liked = connection.prepareStatement(
@@ -258,13 +256,7 @@ class PostgresRingtoneRepository(
                         it.getInt(1)
                     }
                 }
-                connection.commit()
-                return RingtoneLikeToggleResult(ringtoneId, !liked, likesCount)
-            } catch (error: Throwable) {
-                connection.rollback()
-                throw error
-            } finally {
-                connection.autoCommit = true
+                RingtoneLikeToggleResult(ringtoneId, !liked, likesCount)
             }
         }
     }

@@ -1,4 +1,4 @@
-package com.morningalarm.desktopadmin.ui
+package com.morningalarm.desktopadmin.ui.login
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -22,32 +22,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.morningalarm.api.auth.DevAdminDefaults
 import com.morningalarm.desktopadmin.config.AppPreferences
 import com.morningalarm.desktopadmin.config.ConnectionMode
 
 @Composable
 internal fun LoginScreen(
-    preferences: AppPreferences,
-    errorMessage: String?,
-    inProgress: Boolean,
-    onLogin: (baseUrl: String, email: String, password: String, adminSecret: String) -> Unit,
+    viewModel: LoginViewModel,
+    state: LoginState,
 ) {
-    var connectionMode by rememberSaveable { mutableStateOf(preferences.connectionMode) }
-    var customBaseUrl by rememberSaveable { mutableStateOf(preferences.customBaseUrl) }
-    var email by rememberSaveable { mutableStateOf(DevAdminDefaults.EMAIL) }
-    var password by rememberSaveable { mutableStateOf(DevAdminDefaults.PASSWORD) }
-    var adminSecret by rememberSaveable { mutableStateOf(DevAdminDefaults.ACCESS_SECRET) }
-
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xFF0F141D)),
         contentAlignment = Alignment.Center,
@@ -73,14 +60,14 @@ internal fun LoginScreen(
                 )
 
                 ConnectionModeSelector(
-                    selected = connectionMode,
-                    onSelect = { connectionMode = it },
+                    selected = state.connectionMode,
+                    onSelect = viewModel::updateConnectionMode,
                 )
 
-                if (connectionMode == ConnectionMode.CUSTOM) {
+                if (state.connectionMode == ConnectionMode.CUSTOM) {
                     OutlinedTextField(
-                        value = customBaseUrl,
-                        onValueChange = { customBaseUrl = it },
+                        value = state.customBaseUrl,
+                        onValueChange = viewModel::updateCustomBaseUrl,
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Server Base URL") },
                         placeholder = { Text("https://example.com") },
@@ -97,47 +84,37 @@ internal fun LoginScreen(
                 HorizontalDivider(color = Color(0xFF2A3448))
 
                 OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
+                    value = state.email,
+                    onValueChange = viewModel::updateEmail,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Email") },
                     singleLine = true,
                 )
                 OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
+                    value = state.password,
+                    onValueChange = viewModel::updatePassword,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Password") },
                     singleLine = true,
                 )
                 OutlinedTextField(
-                    value = adminSecret,
-                    onValueChange = { adminSecret = it },
+                    value = state.adminSecret,
+                    onValueChange = viewModel::updateAdminSecret,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Admin Secret") },
                     singleLine = true,
                 )
 
-                if (!errorMessage.isNullOrBlank()) {
-                    Text(errorMessage, color = MaterialTheme.colorScheme.error)
+                if (!state.errorMessage.isNullOrBlank()) {
+                    Text(state.errorMessage, color = MaterialTheme.colorScheme.error)
                 }
 
                 Button(
-                    onClick = {
-                        preferences.connectionMode = connectionMode
-                        val baseUrl = when (connectionMode) {
-                            ConnectionMode.DEV -> AppPreferences.DEV_BASE_URL
-                            ConnectionMode.CUSTOM -> {
-                                preferences.customBaseUrl = customBaseUrl
-                                customBaseUrl.trim()
-                            }
-                        }
-                        onLogin(baseUrl, email.trim(), password, adminSecret.trim())
-                    },
+                    onClick = viewModel::login,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
-                    enabled = !inProgress,
+                    enabled = !state.inProgress,
                 ) {
-                    if (inProgress) {
+                    if (state.inProgress) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
                         Text("Log In")

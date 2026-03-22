@@ -32,9 +32,20 @@ dependencies {
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.server.logback)
+    implementation(libs.orbit.core)
+    implementation(libs.orbit.compose)
+    implementation(libs.orbit.viewmodel)
+    implementation(libs.koin.core)
+    implementation(libs.koin.compose)
+    implementation(libs.lifecycle.viewmodel)
+    implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.swing)
     implementation(projects.shared)
 
     testImplementation(kotlin("test"))
+    testImplementation(libs.orbit.test)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
 
 kotlin {
