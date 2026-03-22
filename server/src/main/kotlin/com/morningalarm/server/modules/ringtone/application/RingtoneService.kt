@@ -4,7 +4,9 @@ import com.morningalarm.server.modules.auth.application.ports.TokenFactory
 import com.morningalarm.server.modules.ringtone.application.ports.RingtoneRepository
 import com.morningalarm.server.modules.ringtone.domain.Ringtone
 import com.morningalarm.server.modules.ringtone.domain.RingtoneLikeToggleResult
+import com.morningalarm.server.modules.ringtone.domain.RingtoneListFilter
 import com.morningalarm.server.modules.ringtone.domain.RingtoneView
+import com.morningalarm.server.modules.ringtone.domain.RingtoneVisibility
 import com.morningalarm.server.shared.errors.NotFoundException
 import com.morningalarm.server.shared.errors.ValidationException
 
@@ -12,7 +14,8 @@ class RingtoneService(
     private val ringtoneRepository: RingtoneRepository,
     private val tokenFactory: TokenFactory,
 ) {
-    fun list(userId: String): List<RingtoneView> = ringtoneRepository.listForUser(userId)
+    fun list(userId: String, filter: RingtoneListFilter = RingtoneListFilter.ALL): List<RingtoneView> =
+        ringtoneRepository.listForUser(userId, filter)
 
     fun detail(userId: String, ringtoneId: String): RingtoneView {
         requireRingtoneId(ringtoneId)
@@ -35,7 +38,7 @@ class RingtoneService(
         audioUrl: String,
         durationSeconds: Int,
         description: String,
-        isActive: Boolean,
+        visibility: RingtoneVisibility,
         isPremium: Boolean,
     ): RingtoneView {
         val nowEpochSeconds = nowEpochSeconds()
@@ -46,12 +49,13 @@ class RingtoneService(
             audioUrl = validateAudioUrl(audioUrl),
             durationSeconds = validateDuration(durationSeconds),
             description = description.trim().ifBlank { throw ValidationException("Ringtone description must not be blank") },
-            isActive = isActive,
+            visibility = visibility,
             isPremium = isPremium,
             createdAtEpochSeconds = nowEpochSeconds,
             updatedAtEpochSeconds = nowEpochSeconds,
             createdByAdminId = requireAdminUserId(adminUserId),
             updatedByAdminId = adminUserId,
+            createdByUserId = null,
         )
         return ringtoneRepository.create(ringtone).toAdminView()
     }
@@ -64,7 +68,7 @@ class RingtoneService(
         audioUrl: String,
         durationSeconds: Int,
         description: String,
-        isActive: Boolean,
+        visibility: RingtoneVisibility,
         isPremium: Boolean,
     ): RingtoneView {
         requireRingtoneId(ringtoneId)
@@ -77,22 +81,23 @@ class RingtoneService(
             audioUrl = validateAudioUrl(audioUrl),
             durationSeconds = validateDuration(durationSeconds),
             description = description.trim().ifBlank { throw ValidationException("Ringtone description must not be blank") },
-            isActive = isActive,
+            visibility = visibility,
             isPremium = isPremium,
             createdAtEpochSeconds = existing.ringtone.createdAtEpochSeconds,
             updatedAtEpochSeconds = nowEpochSeconds(),
             createdByAdminId = existing.ringtone.createdByAdminId,
             updatedByAdminId = requireAdminUserId(adminUserId),
+            createdByUserId = existing.ringtone.createdByUserId,
         )
         return (ringtoneRepository.update(ringtone)
             ?: throw NotFoundException("Ringtone not found: $ringtoneId")).toAdminView()
     }
 
-    fun toggleActive(adminUserId: String, ringtoneId: String): RingtoneView {
+    fun setVisibility(adminUserId: String, ringtoneId: String, visibility: RingtoneVisibility): RingtoneView {
         val existing = detailForAdmin(ringtoneId).ringtone
         return ringtoneRepository.update(
             existing.copy(
-                isActive = !existing.isActive,
+                visibility = visibility,
                 updatedAtEpochSeconds = nowEpochSeconds(),
                 updatedByAdminId = requireAdminUserId(adminUserId),
             ),

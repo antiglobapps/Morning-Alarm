@@ -11,6 +11,6 @@ object AdminRingtoneRoutes {
     const val UPDATE = "$BASE/{ringtoneId}"
     const val DELETE = "$BASE/{ringtoneId}"
     const val PREVIEW = "$BASE/{ringtoneId}/preview"
-    const val TOGGLE_ACTIVE = "$BASE/{ringtoneId}/active-toggle"
+    const val SET_VISIBILITY = "$BASE/{ringtoneId}/visibility"
     const val TOGGLE_PREMIUM = "$BASE/{ringtoneId}/premium-toggle"
 }

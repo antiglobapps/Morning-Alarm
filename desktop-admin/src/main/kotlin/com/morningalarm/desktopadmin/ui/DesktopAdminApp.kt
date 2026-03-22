@@ -58,9 +58,11 @@ import com.morningalarm.desktopadmin.data.SessionExpiredException
 import com.morningalarm.dto.admin.ringtone.AdminRingtoneDetailDto
 import com.morningalarm.dto.admin.ringtone.AdminRingtoneListItemDto
 import com.morningalarm.dto.admin.ringtone.CreateAdminRingtoneRequestDto
+import com.morningalarm.dto.admin.ringtone.SetRingtoneVisibilityRequestDto
 import com.morningalarm.dto.admin.ringtone.UpdateAdminRingtoneRequestDto
 import com.morningalarm.dto.auth.AuthSessionDto
 import com.morningalarm.dto.ringtone.RingtoneListItemDto
+import com.morningalarm.dto.ringtone.RingtoneVisibilityDto
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.swing.JFileChooser
@@ -79,8 +81,9 @@ private data class RingtoneDraft(
     val imageUrl: String = "",
     val audioUrl: String = "",
     val durationSeconds: String = "30",
-    val isActive: Boolean = false,
+    val visibility: RingtoneVisibilityDto = RingtoneVisibilityDto.INACTIVE,
     val isPremium: Boolean = false,
+    val createdByUserId: String? = null,
 )
 
 @Composable
@@ -454,12 +457,17 @@ private fun DesktopAdminWorkspace(
                     } else {
                         null
                     },
-                    onToggleActive = if (draft.id != null) {
-                        {
+                    onSetVisibility = if (draft.id != null) {
+                        { targetVisibility ->
                             scope.launch {
                                 execute {
-                                    val result = apiClient.toggleActive(session.authSession.bearerToken, session.adminSecret, draft.id)
-                                    draft = draft.copy(isActive = result.isActive)
+                                    val result = apiClient.setVisibility(
+                                        session.authSession.bearerToken,
+                                        session.adminSecret,
+                                        draft.id,
+                                        SetRingtoneVisibilityRequestDto(targetVisibility),
+                                    )
+                                    draft = draft.copy(visibility = result.visibility)
                                     reloadList()
                                     if (draft.id != null) {
                                         selectedPreview = apiClient.getPreview(
@@ -550,8 +558,19 @@ private fun RingtoneListRow(
         Text(item.title, fontWeight = FontWeight.SemiBold)
         Text(item.description, color = Color(0xFF94A3B8), maxLines = 2)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Badge(if (item.isActive) "Active" else "Draft", if (item.isActive) Color(0xFF1F7A4D) else Color(0xFF5C3B00))
+            val visibilityLabel = when (item.visibility) {
+                RingtoneVisibilityDto.PUBLIC -> "Public"
+                RingtoneVisibilityDto.PRIVATE -> "Private"
+                RingtoneVisibilityDto.INACTIVE -> "Inactive"
+            }
+            val visibilityColor = when (item.visibility) {
+                RingtoneVisibilityDto.PUBLIC -> Color(0xFF1F7A4D)
+                RingtoneVisibilityDto.PRIVATE -> Color(0xFF5C3B00)
+                RingtoneVisibilityDto.INACTIVE -> Color(0xFF4A4A4A)
+            }
+            Badge(visibilityLabel, visibilityColor)
             if (item.isPremium) Badge("Premium", Color(0xFF334E8D))
+            if (item.createdByUserId != null) Badge("User-created", Color(0xFF6B3FA0))
             Badge("${item.likesCount} likes", Color(0xFF2C3443))
         }
     }
@@ -574,7 +593,7 @@ private fun RingtoneForm(
     onUploadAudio: () -> Unit,
     onSave: () -> Unit,
     onDelete: (() -> Unit)?,
-    onToggleActive: (() -> Unit)?,
+    onSetVisibility: ((RingtoneVisibilityDto) -> Unit)?,
     onTogglePremium: (() -> Unit)?,
     onRefreshPreview: (() -> Unit)?,
 ) {
@@ -611,14 +630,19 @@ private fun RingtoneForm(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = draft.isActive,
-                    onCheckedChange = { onDraftChange(draft.copy(isActive = it)) },
-                )
-                Text("Active")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Visibility:")
+            RingtoneVisibilityDto.entries.forEach { visibility ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = draft.visibility == visibility,
+                        onCheckedChange = { if (it) onDraftChange(draft.copy(visibility = visibility)) },
+                    )
+                    Text(visibility.name.lowercase().replaceFirstChar { it.uppercase() })
+                }
             }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(
                     checked = draft.isPremium,
@@ -646,10 +670,14 @@ private fun RingtoneForm(
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             }
-            if (onToggleActive != null) {
-                TextButton(onClick = onToggleActive) {
-                    Text(if (draft.isActive) "Deactivate" else "Activate")
-                }
+            if (onSetVisibility != null) {
+                RingtoneVisibilityDto.entries
+                    .filter { it != draft.visibility }
+                    .forEach { targetVisibility ->
+                        TextButton(onClick = { onSetVisibility(targetVisibility) }) {
+                            Text("Set ${targetVisibility.name.lowercase().replaceFirstChar { it.uppercase() }}")
+                        }
+                    }
             }
             if (onTogglePremium != null) {
                 TextButton(onClick = onTogglePremium) {
@@ -700,8 +728,9 @@ private fun AdminRingtoneDetailDto.toDraft(): RingtoneDraft = RingtoneDraft(
     imageUrl = imageUrl,
     audioUrl = audioUrl,
     durationSeconds = durationSeconds.toString(),
-    isActive = isActive,
+    visibility = visibility,
     isPremium = isPremium,
+    createdByUserId = createdByUserId,
 )
 
 private data class RingtoneRequestData(
@@ -710,7 +739,7 @@ private data class RingtoneRequestData(
     val imageUrl: String,
     val audioUrl: String,
     val durationSeconds: Int,
-    val isActive: Boolean,
+    val visibility: RingtoneVisibilityDto,
     val isPremium: Boolean,
 )
 
@@ -723,7 +752,7 @@ private fun RingtoneDraft.toCreateOrUpdateRequest(): RingtoneRequestData {
         imageUrl = imageUrl.trim(),
         audioUrl = audioUrl.trim(),
         durationSeconds = duration,
-        isActive = isActive,
+        visibility = visibility,
         isPremium = isPremium,
     )
 }
@@ -734,7 +763,7 @@ private fun RingtoneRequestData.toCreateRequest(): CreateAdminRingtoneRequestDto
     imageUrl = imageUrl,
     audioUrl = audioUrl,
     durationSeconds = durationSeconds,
-    isActive = isActive,
+    visibility = visibility,
     isPremium = isPremium,
 )
 
@@ -744,6 +773,6 @@ private fun RingtoneRequestData.toUpdateRequest(): UpdateAdminRingtoneRequestDto
     imageUrl = imageUrl,
     audioUrl = audioUrl,
     durationSeconds = durationSeconds,
-    isActive = isActive,
+    visibility = visibility,
     isPremium = isPremium,
 )

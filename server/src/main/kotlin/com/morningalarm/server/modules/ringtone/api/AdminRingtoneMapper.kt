@@ -2,6 +2,8 @@ package com.morningalarm.server.modules.ringtone.api
 
 import com.morningalarm.dto.admin.ringtone.AdminRingtoneDetailDto
 import com.morningalarm.dto.admin.ringtone.AdminRingtoneListItemDto
+import com.morningalarm.dto.ringtone.RingtoneSourceDto
+import com.morningalarm.dto.ringtone.RingtoneVisibilityDto
 import com.morningalarm.server.modules.ringtone.domain.RingtoneView
 
 fun RingtoneView.toAdminListItemDto(): AdminRingtoneListItemDto = AdminRingtoneListItemDto(
@@ -11,24 +13,28 @@ fun RingtoneView.toAdminListItemDto(): AdminRingtoneListItemDto = AdminRingtoneL
     imageUrl = ringtone.imageUrl,
     audioUrl = ringtone.audioUrl,
     durationSeconds = ringtone.durationSeconds,
-    isActive = ringtone.isActive,
+    visibility = RingtoneVisibilityDto.valueOf(ringtone.visibility.name),
     isPremium = ringtone.isPremium,
     likesCount = likesCount,
     createdAtEpochSeconds = ringtone.createdAtEpochSeconds,
     updatedAtEpochSeconds = ringtone.updatedAtEpochSeconds,
+    createdByAdminId = ringtone.createdByAdminId,
+    createdByUserId = ringtone.createdByUserId,
 )
 
-fun RingtoneView.toAdminDetailDto(): AdminRingtoneDetailDto = AdminRingtoneDetailDto(
+fun RingtoneView.toAdminDetailDto(adminUserId: String): AdminRingtoneDetailDto = AdminRingtoneDetailDto(
     id = ringtone.id,
     title = ringtone.title,
     description = ringtone.description,
     imageUrl = ringtone.imageUrl,
     audioUrl = ringtone.audioUrl,
     durationSeconds = ringtone.durationSeconds,
-    isActive = ringtone.isActive,
+    visibility = RingtoneVisibilityDto.valueOf(ringtone.visibility.name),
     isPremium = ringtone.isPremium,
     likesCount = likesCount,
     createdAtEpochSeconds = ringtone.createdAtEpochSeconds,
     updatedAtEpochSeconds = ringtone.updatedAtEpochSeconds,
-    preview = toDto(),
+    createdByAdminId = ringtone.createdByAdminId,
+    createdByUserId = ringtone.createdByUserId,
+    preview = toDto(adminUserId),
 )
