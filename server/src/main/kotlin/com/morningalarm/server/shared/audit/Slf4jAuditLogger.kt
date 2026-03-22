@@ -43,8 +43,8 @@ class Slf4jAuditLogger : AuditLogger {
             "RINGTONE_UPDATED ringtoneId=${event.ringtoneId} title=\"${sanitize(event.title)}\" adminId=${event.adminId}"
         is AuditEvent.RingtoneDeleted ->
             "RINGTONE_DELETED ringtoneId=${event.ringtoneId} adminId=${event.adminId}"
-        is AuditEvent.RingtoneActiveToggled ->
-            "RINGTONE_ACTIVE_TOGGLED ringtoneId=${event.ringtoneId} isActive=${event.isActive} adminId=${event.adminId}"
+        is AuditEvent.RingtoneVisibilityChanged ->
+            "RINGTONE_VISIBILITY_CHANGED ringtoneId=${event.ringtoneId} visibility=${event.visibility} adminId=${event.adminId}"
         is AuditEvent.RingtonePremiumToggled ->
             "RINGTONE_PREMIUM_TOGGLED ringtoneId=${event.ringtoneId} isPremium=${event.isPremium} adminId=${event.adminId}"
         is AuditEvent.MediaUploaded ->

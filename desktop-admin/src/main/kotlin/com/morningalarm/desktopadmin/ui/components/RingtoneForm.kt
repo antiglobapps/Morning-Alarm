@@ -1,4 +1,4 @@
-package com.morningalarm.desktopadmin.ui
+package com.morningalarm.desktopadmin.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -16,15 +17,19 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.morningalarm.desktopadmin.ui.RingtoneDraft
+import com.morningalarm.dto.ringtone.RingtoneVisibilityDto
 
 @Composable
 internal fun RingtoneForm(
@@ -34,7 +39,7 @@ internal fun RingtoneForm(
     onUploadAudio: () -> Unit,
     onSave: () -> Unit,
     onDelete: (() -> Unit)?,
-    onToggleActive: (() -> Unit)?,
+    onSetVisibility: ((RingtoneVisibilityDto) -> Unit)?,
     onTogglePremium: (() -> Unit)?,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -81,14 +86,30 @@ internal fun RingtoneForm(
             color = Color(0xFF94A3B8),
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = draft.isActive,
-                    onCheckedChange = { onDraftChange(draft.copy(isActive = it)) },
-                )
-                Text("Active")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Visibility:")
+            RingtoneVisibilityDto.entries.forEach { visibility ->
+                Row(
+                    modifier = Modifier.selectable(
+                        selected = draft.visibility == visibility,
+                        onClick = { onDraftChange(draft.copy(visibility = visibility)) },
+                        role = Role.RadioButton,
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = draft.visibility == visibility,
+                        onClick = null,
+                    )
+                    Text(
+                        text = visibility.name.lowercase().replaceFirstChar { it.uppercase() },
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
             }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(
                     checked = draft.isPremium,
@@ -107,10 +128,14 @@ internal fun RingtoneForm(
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             }
-            if (onToggleActive != null) {
-                TextButton(onClick = onToggleActive) {
-                    Text(if (draft.isActive) "Deactivate" else "Activate")
-                }
+            if (onSetVisibility != null) {
+                RingtoneVisibilityDto.entries
+                    .filter { it != draft.visibility }
+                    .forEach { targetVisibility ->
+                        TextButton(onClick = { onSetVisibility(targetVisibility) }) {
+                            Text("Set ${targetVisibility.name.lowercase().replaceFirstChar { it.uppercase() }}")
+                        }
+                    }
             }
             if (onTogglePremium != null) {
                 TextButton(onClick = onTogglePremium) {

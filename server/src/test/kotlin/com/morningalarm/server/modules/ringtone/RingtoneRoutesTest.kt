@@ -10,12 +10,15 @@ import com.morningalarm.dto.admin.ringtone.AdminRingtoneListResponseDto
 import com.morningalarm.dto.admin.ringtone.AdminRingtonePreviewResponseDto
 import com.morningalarm.dto.admin.ringtone.CreateAdminRingtoneRequestDto
 import com.morningalarm.dto.admin.ringtone.CreateAdminRingtoneResponseDto
-import com.morningalarm.dto.admin.ringtone.ToggleRingtoneActiveResponseDto
+import com.morningalarm.dto.admin.ringtone.SetRingtoneVisibilityRequestDto
+import com.morningalarm.dto.admin.ringtone.SetRingtoneVisibilityResponseDto
 import com.morningalarm.dto.admin.ringtone.ToggleRingtonePremiumResponseDto
 import com.morningalarm.dto.admin.ringtone.UpdateAdminRingtoneRequestDto
 import com.morningalarm.dto.admin.ringtone.UpdateAdminRingtoneResponseDto
 import com.morningalarm.dto.ringtone.RingtoneDetailResponseDto
 import com.morningalarm.dto.ringtone.RingtoneListResponseDto
+import com.morningalarm.dto.ringtone.RingtoneSourceDto
+import com.morningalarm.dto.ringtone.RingtoneVisibilityDto
 import com.morningalarm.dto.ringtone.ToggleRingtoneLikeResponseDto
 import com.morningalarm.server.bootstrap.AppConfig
 import com.morningalarm.server.bootstrap.ModuleDependencies
@@ -33,9 +36,11 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import javax.sql.DataSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RingtoneRoutesTest {
@@ -46,7 +51,7 @@ class RingtoneRoutesTest {
     }
 
     @Test
-    fun `admin can create update toggle preview and delete ringtone through admin api`() =
+    fun `admin can create update set visibility preview and delete ringtone through admin api`() =
         testApp { dependencies, client ->
             val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
 
@@ -60,7 +65,7 @@ class RingtoneRoutesTest {
                         imageUrl = "https://cdn.example.com/ringtones/sunrise.jpg",
                         audioUrl = "https://cdn.example.com/ringtones/sunrise.mp3",
                         durationSeconds = 42,
-                        isActive = false,
+                        visibility = RingtoneVisibilityDto.INACTIVE,
                         isPremium = false,
                     ),
                 )
@@ -69,7 +74,8 @@ class RingtoneRoutesTest {
             assertEquals(HttpStatusCode.Created, createResponse.status)
             val created = createResponse.body<CreateAdminRingtoneResponseDto>().ringtone
             assertEquals("Sunrise Bells", created.title)
-            assertFalse(created.isActive)
+            assertEquals(RingtoneVisibilityDto.INACTIVE, created.visibility)
+            assertNull(created.createdByUserId)
             assertEquals("https://cdn.example.com/ringtones/sunrise.mp3", created.audioUrl)
 
             val listResponse = client.get(AdminRingtoneRoutes.LIST) {
@@ -88,7 +94,7 @@ class RingtoneRoutesTest {
                         imageUrl = "https://cdn.example.com/ringtones/sunrise-updated.jpg",
                         audioUrl = "https://cdn.example.com/ringtones/sunrise-updated.mp3",
                         durationSeconds = 55,
-                        isActive = true,
+                        visibility = RingtoneVisibilityDto.PUBLIC,
                         isPremium = true,
                     ),
                 )
@@ -97,7 +103,7 @@ class RingtoneRoutesTest {
             assertEquals(HttpStatusCode.OK, updateResponse.status)
             val updated = updateResponse.body<UpdateAdminRingtoneResponseDto>().ringtone
             assertEquals("Sunrise Bells Updated", updated.title)
-            assertTrue(updated.isActive)
+            assertEquals(RingtoneVisibilityDto.PUBLIC, updated.visibility)
             assertTrue(updated.isPremium)
             assertTrue(updated.updatedAtEpochSeconds >= created.updatedAtEpochSeconds)
 
@@ -108,6 +114,7 @@ class RingtoneRoutesTest {
             val detail = detailResponse.body<AdminRingtoneDetailResponseDto>().ringtone
             assertEquals(updated.id, detail.id)
             assertTrue(detail.preview.isPremium)
+            assertEquals(RingtoneSourceDto.SYSTEM, detail.preview.source)
 
             val previewResponse = client.get("${AdminRingtoneRoutes.BASE}/${created.id}/preview") {
                 auth(adminToken)
@@ -123,11 +130,13 @@ class RingtoneRoutesTest {
             assertEquals(HttpStatusCode.OK, togglePremiumResponse.status)
             assertFalse(togglePremiumResponse.body<ToggleRingtonePremiumResponseDto>().isPremium)
 
-            val toggleActiveResponse = client.post("${AdminRingtoneRoutes.BASE}/${created.id}/active-toggle") {
+            val setVisibilityResponse = client.put("${AdminRingtoneRoutes.BASE}/${created.id}/visibility") {
                 auth(adminToken)
+                contentType(ContentType.Application.Json)
+                setBody(SetRingtoneVisibilityRequestDto(RingtoneVisibilityDto.INACTIVE))
             }
-            assertEquals(HttpStatusCode.OK, toggleActiveResponse.status)
-            assertFalse(toggleActiveResponse.body<ToggleRingtoneActiveResponseDto>().isActive)
+            assertEquals(HttpStatusCode.OK, setVisibilityResponse.status)
+            assertEquals(RingtoneVisibilityDto.INACTIVE, setVisibilityResponse.body<SetRingtoneVisibilityResponseDto>().visibility)
 
             val deleteResponse = client.delete("${AdminRingtoneRoutes.BASE}/${created.id}") {
                 auth(adminToken)
@@ -159,7 +168,7 @@ class RingtoneRoutesTest {
                     imageUrl = "https://cdn.example.com/ringtones/rain.jpg",
                     audioUrl = "https://cdn.example.com/ringtones/rain.mp3",
                     durationSeconds = 30,
-                    isActive = true,
+                    visibility = RingtoneVisibilityDto.PUBLIC,
                     isPremium = false,
                 ),
             )
@@ -187,25 +196,27 @@ class RingtoneRoutesTest {
     }
 
     @Test
-    fun `client api returns only active ringtones and includes like state`() = testApp { dependencies, client ->
+    fun `client api returns only public ringtones and includes like state and source`() = testApp { dependencies, client ->
         val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
         val userToken = registerUser(dependencies, "user@example.com").bearerToken
 
-        val activeRingtone = createAdminRingtone(client, adminToken, "Ocean Morning", isActive = true, isPremium = true)
-        createAdminRingtone(client, adminToken, "Hidden Draft", isActive = false, isPremium = false)
+        val publicRingtone = createAdminRingtone(client, adminToken, "Ocean Morning", visibility = RingtoneVisibilityDto.PUBLIC, isPremium = true)
+        createAdminRingtone(client, adminToken, "Hidden Draft", visibility = RingtoneVisibilityDto.INACTIVE, isPremium = false)
 
         val initialList = client.get(RingtoneRoutes.LIST) {
             auth(userToken)
         }
         assertEquals(HttpStatusCode.OK, initialList.status)
         val initialItem = initialList.body<RingtoneListResponseDto>().items.single()
-        assertEquals(activeRingtone.id, initialItem.id)
+        assertEquals(publicRingtone.id, initialItem.id)
         assertFalse(initialItem.isLikedByUser)
         assertEquals(0, initialItem.likesCount)
         assertTrue(initialItem.isPremium)
+        assertEquals(RingtoneSourceDto.SYSTEM, initialItem.source)
+        assertFalse(initialItem.isOwnedByCurrentUser)
         assertEquals("https://cdn.example.com/ringtones/ocean-morning.mp3", initialItem.audioUrl)
 
-        val toggleOn = client.post("${RingtoneRoutes.BASE}/${activeRingtone.id}/like-toggle") {
+        val toggleOn = client.post("${RingtoneRoutes.BASE}/${publicRingtone.id}/like-toggle") {
             auth(userToken)
         }
         assertEquals(HttpStatusCode.OK, toggleOn.status)
@@ -213,7 +224,7 @@ class RingtoneRoutesTest {
         assertTrue(toggleOnBody.isLikedByUser)
         assertEquals(1, toggleOnBody.likesCount)
 
-        val detail = client.get("${RingtoneRoutes.BASE}/${activeRingtone.id}") {
+        val detail = client.get("${RingtoneRoutes.BASE}/${publicRingtone.id}") {
             auth(userToken)
         }
         assertEquals(HttpStatusCode.OK, detail.status)
@@ -228,7 +239,7 @@ class RingtoneRoutesTest {
         assertEquals(HttpStatusCode.OK, previewList.status)
         assertEquals(1, previewList.body<AdminRingtoneClientListPreviewResponseDto>().items.size)
 
-        val toggleOff = client.post("${RingtoneRoutes.BASE}/${activeRingtone.id}/like-toggle") {
+        val toggleOff = client.post("${RingtoneRoutes.BASE}/${publicRingtone.id}/like-toggle") {
             auth(userToken)
         }
         assertEquals(HttpStatusCode.OK, toggleOff.status)
@@ -241,7 +252,7 @@ class RingtoneRoutesTest {
     fun `inactive ringtone is hidden from client detail and like endpoints`() = testApp { dependencies, client ->
         val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
         val userToken = registerUser(dependencies, "user@example.com").bearerToken
-        val inactiveRingtone = createAdminRingtone(client, adminToken, "Night Draft", isActive = false, isPremium = false)
+        val inactiveRingtone = createAdminRingtone(client, adminToken, "Night Draft", visibility = RingtoneVisibilityDto.INACTIVE, isPremium = false)
 
         val detailResponse = client.get("${RingtoneRoutes.BASE}/${inactiveRingtone.id}") {
             auth(userToken)
@@ -268,7 +279,7 @@ class RingtoneRoutesTest {
                     imageUrl = "/relative/image.jpg",
                     audioUrl = "/relative/audio.mp3",
                     durationSeconds = 12,
-                    isActive = true,
+                    visibility = RingtoneVisibilityDto.PUBLIC,
                     isPremium = false,
                 ),
             )
@@ -278,11 +289,120 @@ class RingtoneRoutesTest {
         assertEquals("validation_error", response.body<ApiError>().code)
     }
 
+    @Test
+    fun `client list filter returns correct subsets`() = testApp { dependencies, client ->
+        val adminToken = registerUser(dependencies, "admin@example.com").bearerToken
+        val userSession = registerUser(dependencies, "user@example.com")
+        val otherUserSession = registerUser(dependencies, "other@example.com")
+
+        createAdminRingtone(client, adminToken, "System Public", visibility = RingtoneVisibilityDto.PUBLIC, isPremium = false)
+        createAdminRingtone(client, adminToken, "System Inactive", visibility = RingtoneVisibilityDto.INACTIVE, isPremium = false)
+        val privateUserRingtoneId = createUserRingtone(
+            dataSource = dependencies.dataSource,
+            ownerUserId = userSession.userId,
+            title = "Private User Draft",
+            visibility = RingtoneVisibilityDto.PRIVATE,
+            isPremium = false,
+        )
+
+        val allList = client.get("${RingtoneRoutes.LIST}?filter=all") {
+            auth(userSession.bearerToken)
+        }
+        assertEquals(HttpStatusCode.OK, allList.status)
+        val allItems = allList.body<RingtoneListResponseDto>().items
+        assertEquals(2, allItems.size)
+        assertTrue(allItems.any { it.id == privateUserRingtoneId && it.source == RingtoneSourceDto.USER && it.isOwnedByCurrentUser })
+        assertTrue(allItems.any { it.source == RingtoneSourceDto.SYSTEM && !it.isOwnedByCurrentUser })
+
+        val systemList = client.get("${RingtoneRoutes.LIST}?filter=system") {
+            auth(userSession.bearerToken)
+        }
+        assertEquals(HttpStatusCode.OK, systemList.status)
+        val systemItems = systemList.body<RingtoneListResponseDto>().items
+        assertEquals(1, systemItems.size)
+        assertEquals(RingtoneSourceDto.SYSTEM, systemItems.single().source)
+        assertFalse(systemItems.single().isOwnedByCurrentUser)
+
+        val myList = client.get("${RingtoneRoutes.LIST}?filter=my") {
+            auth(userSession.bearerToken)
+        }
+        assertEquals(HttpStatusCode.OK, myList.status)
+        val myItems = myList.body<RingtoneListResponseDto>().items
+        assertEquals(1, myItems.size)
+        assertEquals(privateUserRingtoneId, myItems.single().id)
+        assertEquals(RingtoneSourceDto.USER, myItems.single().source)
+        assertTrue(myItems.single().isOwnedByCurrentUser)
+
+        val otherUserAllList = client.get("${RingtoneRoutes.LIST}?filter=all") {
+            auth(otherUserSession.bearerToken)
+        }
+        assertEquals(HttpStatusCode.OK, otherUserAllList.status)
+        val otherUserAllItems = otherUserAllList.body<RingtoneListResponseDto>().items
+        assertEquals(1, otherUserAllItems.size)
+        assertFalse(otherUserAllItems.any { it.id == privateUserRingtoneId })
+
+        val otherUserMyList = client.get("${RingtoneRoutes.LIST}?filter=my") {
+            auth(otherUserSession.bearerToken)
+        }
+        assertEquals(HttpStatusCode.OK, otherUserMyList.status)
+        assertEquals(0, otherUserMyList.body<RingtoneListResponseDto>().items.size)
+
+        val otherUserSystemList = client.get("${RingtoneRoutes.LIST}?filter=system") {
+            auth(otherUserSession.bearerToken)
+        }
+        assertEquals(HttpStatusCode.OK, otherUserSystemList.status)
+        assertEquals(1, otherUserSystemList.body<RingtoneListResponseDto>().items.size)
+
+        val invalidFilter = client.get("${RingtoneRoutes.LIST}?filter=invalid") {
+            auth(userSession.bearerToken)
+        }
+        assertEquals(HttpStatusCode.BadRequest, invalidFilter.status)
+    }
+
+    private fun createUserRingtone(
+        dataSource: DataSource,
+        ownerUserId: String,
+        title: String,
+        visibility: RingtoneVisibilityDto,
+        isPremium: Boolean,
+    ): String {
+        val slug = title.lowercase().replace(' ', '-')
+        val ringtoneId = "user-$slug-$ownerUserId"
+        val nowEpochSeconds = 1_700_000_000L
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                INSERT INTO ringtones (
+                    id, title, image_url, audio_url, duration_seconds, description,
+                    visibility, is_premium, created_at_epoch_seconds, updated_at_epoch_seconds,
+                    created_by_admin_id, updated_by_admin_id, created_by_user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setString(1, ringtoneId)
+                statement.setString(2, title)
+                statement.setString(3, "https://cdn.example.com/ringtones/$slug.jpg")
+                statement.setString(4, "https://cdn.example.com/ringtones/$slug.mp3")
+                statement.setInt(5, 45)
+                statement.setString(6, "$title description")
+                statement.setString(7, visibility.name)
+                statement.setBoolean(8, isPremium)
+                statement.setLong(9, nowEpochSeconds)
+                statement.setLong(10, nowEpochSeconds)
+                statement.setNull(11, java.sql.Types.VARCHAR)
+                statement.setNull(12, java.sql.Types.VARCHAR)
+                statement.setString(13, ownerUserId)
+                statement.executeUpdate()
+            }
+        }
+        return ringtoneId
+    }
+
     private suspend fun createAdminRingtone(
         client: HttpClient,
         adminToken: String,
         title: String,
-        isActive: Boolean,
+        visibility: RingtoneVisibilityDto,
         isPremium: Boolean,
     ): com.morningalarm.dto.admin.ringtone.AdminRingtoneDetailDto {
         val slug = title.lowercase().replace(' ', '-')
@@ -296,7 +416,7 @@ class RingtoneRoutesTest {
                     imageUrl = "https://cdn.example.com/ringtones/$slug.jpg",
                     audioUrl = "https://cdn.example.com/ringtones/$slug.mp3",
                     durationSeconds = 60,
-                    isActive = isActive,
+                    visibility = visibility,
                     isPremium = isPremium,
                 ),
             )

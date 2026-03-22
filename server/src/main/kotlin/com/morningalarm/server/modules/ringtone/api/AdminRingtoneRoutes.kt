@@ -8,7 +8,8 @@ import com.morningalarm.dto.admin.ringtone.AdminRingtonePreviewResponseDto
 import com.morningalarm.dto.admin.ringtone.CreateAdminRingtoneRequestDto
 import com.morningalarm.dto.admin.ringtone.CreateAdminRingtoneResponseDto
 import com.morningalarm.dto.admin.ringtone.DeleteAdminRingtoneResponseDto
-import com.morningalarm.dto.admin.ringtone.ToggleRingtoneActiveResponseDto
+import com.morningalarm.dto.admin.ringtone.SetRingtoneVisibilityRequestDto
+import com.morningalarm.dto.admin.ringtone.SetRingtoneVisibilityResponseDto
 import com.morningalarm.dto.admin.ringtone.ToggleRingtonePremiumResponseDto
 import com.morningalarm.dto.admin.ringtone.UpdateAdminRingtoneRequestDto
 import com.morningalarm.dto.admin.ringtone.UpdateAdminRingtoneResponseDto
@@ -38,20 +39,23 @@ fun Route.configureAdminRingtoneRoutes(ringtoneService: RingtoneService, adminAc
         val principal = call.currentAuthPrincipal()
         call.respond(
             HttpStatusCode.OK,
-            AdminRingtoneClientListPreviewResponseDto(ringtoneService.list(principal.userId).map { it.toDto() }),
+            AdminRingtoneClientListPreviewResponseDto(ringtoneService.list(principal.userId).map { it.toDto(principal.userId) }),
         )
     }
 
     get(AdminRingtoneRoutes.DETAIL) {
         call.requireAdmin(adminAccessSecret)
-        val ringtone = ringtoneService.detailForAdmin(call.parameters["ringtoneId"].orEmpty()).toAdminDetailDto()
+        val principal = call.currentAuthPrincipal()
+        val ringtone = ringtoneService.detailForAdmin(call.parameters["ringtoneId"].orEmpty())
+            .toAdminDetailDto(principal.userId)
         call.respond(HttpStatusCode.OK, AdminRingtoneDetailResponseDto(ringtone))
     }
 
     get(AdminRingtoneRoutes.PREVIEW) {
         call.requireAdmin(adminAccessSecret)
+        val principal = call.currentAuthPrincipal()
         val ringtone = ringtoneService.detailForAdmin(call.parameters["ringtoneId"].orEmpty())
-        call.respond(HttpStatusCode.OK, AdminRingtonePreviewResponseDto(ringtone.ringtone.id, ringtone.toDto()))
+        call.respond(HttpStatusCode.OK, AdminRingtonePreviewResponseDto(ringtone.ringtone.id, ringtone.toDto(principal.userId)))
     }
 
     post(AdminRingtoneRoutes.CREATE) {
@@ -65,9 +69,9 @@ fun Route.configureAdminRingtoneRoutes(ringtoneService: RingtoneService, adminAc
             audioUrl = request.audioUrl,
             durationSeconds = request.durationSeconds,
             description = request.description,
-            isActive = request.isActive,
+            visibility = request.visibility.toDomain(),
             isPremium = request.isPremium,
-        ).toAdminDetailDto()
+        ).toAdminDetailDto(principal.userId)
         call.respond(HttpStatusCode.Created, CreateAdminRingtoneResponseDto(ringtone))
     }
 
@@ -83,9 +87,9 @@ fun Route.configureAdminRingtoneRoutes(ringtoneService: RingtoneService, adminAc
             audioUrl = request.audioUrl,
             durationSeconds = request.durationSeconds,
             description = request.description,
-            isActive = request.isActive,
+            visibility = request.visibility.toDomain(),
             isPremium = request.isPremium,
-        ).toAdminDetailDto()
+        ).toAdminDetailDto(principal.userId)
         call.respond(HttpStatusCode.OK, UpdateAdminRingtoneResponseDto(ringtone))
     }
 
@@ -97,11 +101,13 @@ fun Route.configureAdminRingtoneRoutes(ringtoneService: RingtoneService, adminAc
         call.respond(HttpStatusCode.OK, DeleteAdminRingtoneResponseDto(ringtoneId, true))
     }
 
-    post(AdminRingtoneRoutes.TOGGLE_ACTIVE) {
+    put(AdminRingtoneRoutes.SET_VISIBILITY) {
         call.requireAdmin(adminAccessSecret)
         val principal = call.currentAuthPrincipal()
-        val ringtone = ringtoneService.toggleActive(principal.userId, call.parameters["ringtoneId"].orEmpty())
-        call.respond(HttpStatusCode.OK, ToggleRingtoneActiveResponseDto(ringtone.ringtone.id, ringtone.ringtone.isActive))
+        val request = call.receive<SetRingtoneVisibilityRequestDto>()
+        val visibility = request.visibility.toDomain()
+        val ringtone = ringtoneService.setVisibility(principal.userId, call.parameters["ringtoneId"].orEmpty(), visibility)
+        call.respond(HttpStatusCode.OK, SetRingtoneVisibilityResponseDto(ringtone.ringtone.id, request.visibility))
     }
 
     post(AdminRingtoneRoutes.TOGGLE_PREMIUM) {

@@ -6,26 +6,26 @@ import com.morningalarm.server.modules.auth.domain.PasswordResetTokenRecord
 import com.morningalarm.server.modules.auth.domain.RefreshTokenRecord
 import com.morningalarm.server.modules.auth.domain.SocialAccount
 import com.morningalarm.server.modules.auth.domain.SocialProvider
+import com.morningalarm.server.shared.persistence.JdbcSessionManager
 import java.sql.Connection
-import javax.sql.DataSource
 
 class PostgresAuthUserRepository(
-    private val dataSource: DataSource,
+    private val sessionManager: JdbcSessionManager,
 ) : AuthUserRepository {
     override fun findByEmail(email: String): AuthUser? {
-        return dataSource.connection.use { connection ->
+        return sessionManager.withConnection { connection ->
             val userId = connection.prepareStatement(
                 "SELECT id FROM auth_users WHERE email = ?",
             ).use { statement ->
                 statement.setString(1, email)
                 statement.executeQuery().use { rs -> if (rs.next()) rs.getString("id") else null }
-            } ?: return null
+            } ?: return@withConnection null
             loadUser(connection, userId)
         }
     }
 
     override fun findBySocialAccount(provider: SocialProvider, externalSubject: String): AuthUser? {
-        return dataSource.connection.use { connection ->
+        return sessionManager.withConnection { connection ->
             connection.prepareStatement(
                 """
                 SELECT user_id
@@ -46,13 +46,13 @@ class PostgresAuthUserRepository(
     }
 
     override fun findById(userId: String): AuthUser? {
-        return dataSource.connection.use { connection ->
+        return sessionManager.withConnection { connection ->
             loadUser(connection, userId)
         }
     }
 
     override fun countUsers(): Long {
-        return dataSource.connection.use { connection ->
+        return sessionManager.withConnection { connection ->
             connection.prepareStatement("SELECT COUNT(*) FROM auth_users").use { statement ->
                 statement.executeQuery().use { resultSet ->
                     if (resultSet.next()) resultSet.getLong(1) else 0L
@@ -62,9 +62,8 @@ class PostgresAuthUserRepository(
     }
 
     override fun upsertUser(user: AuthUser): AuthUser {
-        dataSource.connection.use { connection ->
-            connection.autoCommit = false
-            try {
+        return sessionManager.inTransaction {
+            sessionManager.withConnection { connection ->
                 val existing = selectUserRow(connection, user.id)
                 if (existing == null) {
                     insertUser(connection, user)
@@ -73,21 +72,14 @@ class PostgresAuthUserRepository(
                     deleteSocialAccounts(connection, user.id)
                 }
                 insertSocialAccounts(connection, user)
-                connection.commit()
-                return user
-            } catch (error: Throwable) {
-                connection.rollback()
-                throw error
-            } finally {
-                connection.autoCommit = true
+                user
             }
         }
     }
 
     override fun savePasswordResetToken(record: PasswordResetTokenRecord) {
-        dataSource.connection.use { connection ->
-            connection.autoCommit = false
-            try {
+        sessionManager.inTransaction {
+            sessionManager.withConnection { connection ->
                 connection.prepareStatement(
                     "DELETE FROM auth_password_reset_tokens WHERE token = ?",
                 ).use { statement ->
@@ -106,20 +98,13 @@ class PostgresAuthUserRepository(
                     statement.setLong(4, record.expiresAtEpochSeconds)
                     statement.executeUpdate()
                 }
-                connection.commit()
-            } catch (error: Throwable) {
-                connection.rollback()
-                throw error
-            } finally {
-                connection.autoCommit = true
             }
         }
     }
 
     override fun consumePasswordResetToken(token: String): PasswordResetTokenRecord? {
-        dataSource.connection.use { connection ->
-            connection.autoCommit = false
-            try {
+        return sessionManager.inTransaction {
+            sessionManager.withConnection { connection ->
                 val record = connection.prepareStatement(
                     """
                     SELECT token, user_id, email, expires_at_epoch_seconds
@@ -140,7 +125,7 @@ class PostgresAuthUserRepository(
                             )
                         }
                     }
-                } ?: return null
+                } ?: return@withConnection null
 
                 connection.prepareStatement(
                     "DELETE FROM auth_password_reset_tokens WHERE token = ?",
@@ -148,21 +133,14 @@ class PostgresAuthUserRepository(
                     statement.setString(1, token)
                     statement.executeUpdate()
                 }
-                connection.commit()
-                return record
-            } catch (error: Throwable) {
-                connection.rollback()
-                throw error
-            } finally {
-                connection.autoCommit = true
+                record
             }
         }
     }
 
     override fun saveRefreshToken(record: RefreshTokenRecord) {
-        dataSource.connection.use { connection ->
-            connection.autoCommit = false
-            try {
+        sessionManager.inTransaction {
+            sessionManager.withConnection { connection ->
                 connection.prepareStatement(
                     "DELETE FROM auth_refresh_tokens WHERE token = ?",
                 ).use { statement ->
@@ -180,18 +158,12 @@ class PostgresAuthUserRepository(
                     statement.setLong(3, record.expiresAtEpochSeconds)
                     statement.executeUpdate()
                 }
-                connection.commit()
-            } catch (error: Throwable) {
-                connection.rollback()
-                throw error
-            } finally {
-                connection.autoCommit = true
             }
         }
     }
 
     override fun revokeAllRefreshTokens(userId: String) {
-        dataSource.connection.use { connection ->
+        sessionManager.withConnection { connection ->
             connection.prepareStatement(
                 "DELETE FROM auth_refresh_tokens WHERE user_id = ?",
             ).use { statement ->
@@ -202,9 +174,8 @@ class PostgresAuthUserRepository(
     }
 
     override fun consumeRefreshToken(token: String): RefreshTokenRecord? {
-        dataSource.connection.use { connection ->
-            connection.autoCommit = false
-            try {
+        return sessionManager.inTransaction {
+            sessionManager.withConnection { connection ->
                 val record = connection.prepareStatement(
                     """
                     SELECT token, user_id, expires_at_epoch_seconds
@@ -224,7 +195,7 @@ class PostgresAuthUserRepository(
                             )
                         }
                     }
-                } ?: return null
+                } ?: return@withConnection null
 
                 connection.prepareStatement(
                     "DELETE FROM auth_refresh_tokens WHERE token = ?",
@@ -232,13 +203,7 @@ class PostgresAuthUserRepository(
                     statement.setString(1, token)
                     statement.executeUpdate()
                 }
-                connection.commit()
-                return record
-            } catch (error: Throwable) {
-                connection.rollback()
-                throw error
-            } finally {
-                connection.autoCommit = true
+                record
             }
         }
     }

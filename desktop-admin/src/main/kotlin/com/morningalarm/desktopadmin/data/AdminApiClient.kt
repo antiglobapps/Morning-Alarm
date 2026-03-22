@@ -13,7 +13,8 @@ import com.morningalarm.dto.admin.ringtone.AdminRingtoneListResponseDto
 import com.morningalarm.dto.admin.ringtone.AdminRingtonePreviewResponseDto
 import com.morningalarm.dto.admin.ringtone.CreateAdminRingtoneRequestDto
 import com.morningalarm.dto.admin.ringtone.CreateAdminRingtoneResponseDto
-import com.morningalarm.dto.admin.ringtone.ToggleRingtoneActiveResponseDto
+import com.morningalarm.dto.admin.ringtone.SetRingtoneVisibilityRequestDto
+import com.morningalarm.dto.admin.ringtone.SetRingtoneVisibilityResponseDto
 import com.morningalarm.dto.admin.ringtone.ToggleRingtonePremiumResponseDto
 import com.morningalarm.dto.admin.ringtone.UpdateAdminRingtoneRequestDto
 import com.morningalarm.dto.admin.ringtone.UpdateAdminRingtoneResponseDto
@@ -137,9 +138,16 @@ class AdminApiClient(
         handleUnitResponse(response)
     }
 
-    suspend fun toggleActive(token: String, adminSecret: String, ringtoneId: String): ToggleRingtoneActiveResponseDto {
-        val response = client.post(url(AdminRingtoneRoutes.TOGGLE_ACTIVE.withRingtoneId(ringtoneId))) {
+    suspend fun setVisibility(
+        token: String,
+        adminSecret: String,
+        ringtoneId: String,
+        request: SetRingtoneVisibilityRequestDto,
+    ): SetRingtoneVisibilityResponseDto {
+        val response = client.put(url(AdminRingtoneRoutes.SET_VISIBILITY.withRingtoneId(ringtoneId))) {
             adminAuth(token, adminSecret)
+            contentType(ContentType.Application.Json)
+            setBody(request)
         }
         return handleResponse(response)
     }

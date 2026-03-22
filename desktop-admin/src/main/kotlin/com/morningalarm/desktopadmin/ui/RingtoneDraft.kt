@@ -5,6 +5,8 @@ import com.morningalarm.dto.admin.ringtone.AdminRingtoneDetailDto
 import com.morningalarm.dto.admin.ringtone.CreateAdminRingtoneRequestDto
 import com.morningalarm.dto.admin.ringtone.UpdateAdminRingtoneRequestDto
 import com.morningalarm.dto.ringtone.RingtoneListItemDto
+import com.morningalarm.dto.ringtone.RingtoneSourceDto
+import com.morningalarm.dto.ringtone.RingtoneVisibilityDto
 
 internal data class RingtoneDraft(
     val id: String? = null,
@@ -13,8 +15,9 @@ internal data class RingtoneDraft(
     val imageUrl: String = "",
     val audioUrl: String = "",
     val durationSeconds: String = "30",
-    val isActive: Boolean = false,
+    val visibility: RingtoneVisibilityDto = RingtoneVisibilityDto.INACTIVE,
     val isPremium: Boolean = false,
+    val createdByUserId: String? = null,
 )
 
 internal fun AdminRingtoneDetailDto.toDraft(): RingtoneDraft = RingtoneDraft(
@@ -24,8 +27,9 @@ internal fun AdminRingtoneDetailDto.toDraft(): RingtoneDraft = RingtoneDraft(
     imageUrl = imageUrl,
     audioUrl = audioUrl,
     durationSeconds = durationSeconds.toString(),
-    isActive = isActive,
+    visibility = visibility,
     isPremium = isPremium,
+    createdByUserId = createdByUserId,
 )
 
 internal fun RingtoneDraft.toPreview(previousPreview: RingtoneListItemDto?): RingtoneListItemDto = RingtoneListItemDto(
@@ -38,6 +42,8 @@ internal fun RingtoneDraft.toPreview(previousPreview: RingtoneListItemDto?): Rin
     isPremium = isPremium,
     likesCount = previousPreview?.likesCount ?: 0,
     isLikedByUser = previousPreview?.isLikedByUser ?: false,
+    source = if (createdByUserId != null) RingtoneSourceDto.USER else RingtoneSourceDto.SYSTEM,
+    isOwnedByCurrentUser = previousPreview?.isOwnedByCurrentUser ?: false,
 )
 
 internal data class RingtoneRequestData(
@@ -46,7 +52,7 @@ internal data class RingtoneRequestData(
     val imageUrl: String,
     val audioUrl: String,
     val durationSeconds: Int,
-    val isActive: Boolean,
+    val visibility: RingtoneVisibilityDto,
     val isPremium: Boolean,
 )
 
@@ -59,7 +65,7 @@ internal fun RingtoneDraft.toCreateOrUpdateRequest(): RingtoneRequestData {
         imageUrl = imageUrl.trim(),
         audioUrl = audioUrl.trim(),
         durationSeconds = duration,
-        isActive = isActive,
+        visibility = visibility,
         isPremium = isPremium,
     )
 }
@@ -70,7 +76,7 @@ internal fun RingtoneRequestData.toCreateRequest(): CreateAdminRingtoneRequestDt
     imageUrl = imageUrl,
     audioUrl = audioUrl,
     durationSeconds = durationSeconds,
-    isActive = isActive,
+    visibility = visibility,
     isPremium = isPremium,
 )
 
@@ -80,6 +86,6 @@ internal fun RingtoneRequestData.toUpdateRequest(): UpdateAdminRingtoneRequestDt
     imageUrl = imageUrl,
     audioUrl = audioUrl,
     durationSeconds = durationSeconds,
-    isActive = isActive,
+    visibility = visibility,
     isPremium = isPremium,
 )

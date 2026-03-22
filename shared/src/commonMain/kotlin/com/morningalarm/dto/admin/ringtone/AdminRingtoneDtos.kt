@@ -1,6 +1,11 @@
 package com.morningalarm.dto.admin.ringtone
 
+import com.morningalarm.EpochSeconds
+import com.morningalarm.Seconds
+import com.morningalarm.Url
+import com.morningalarm.UserId
 import com.morningalarm.dto.ringtone.RingtoneListItemDto
+import com.morningalarm.dto.ringtone.RingtoneVisibilityDto
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -8,14 +13,16 @@ data class AdminRingtoneListItemDto(
     val id: String,
     val title: String,
     val description: String,
-    val imageUrl: String,
-    val audioUrl: String,
-    val durationSeconds: Int,
-    val isActive: Boolean,
+    val imageUrl: Url,
+    val audioUrl: Url,
+    val durationSeconds: Seconds,
+    val visibility: RingtoneVisibilityDto,
     val isPremium: Boolean,
     val likesCount: Int,
-    val createdAtEpochSeconds: Long,
-    val updatedAtEpochSeconds: Long,
+    val createdAtEpochSeconds: EpochSeconds,
+    val updatedAtEpochSeconds: EpochSeconds,
+    val createdByAdminId: UserId?,
+    val createdByUserId: UserId?,
 )
 
 @Serializable
@@ -23,14 +30,16 @@ data class AdminRingtoneDetailDto(
     val id: String,
     val title: String,
     val description: String,
-    val imageUrl: String,
-    val audioUrl: String,
-    val durationSeconds: Int,
-    val isActive: Boolean,
+    val imageUrl: Url,
+    val audioUrl: Url,
+    val durationSeconds: Seconds,
+    val visibility: RingtoneVisibilityDto,
     val isPremium: Boolean,
     val likesCount: Int,
-    val createdAtEpochSeconds: Long,
-    val updatedAtEpochSeconds: Long,
+    val createdAtEpochSeconds: EpochSeconds,
+    val updatedAtEpochSeconds: EpochSeconds,
+    val createdByAdminId: UserId?,
+    val createdByUserId: UserId?,
     val preview: RingtoneListItemDto,
 )
 
@@ -48,10 +57,10 @@ data class AdminRingtoneDetailResponseDto(
 data class CreateAdminRingtoneRequestDto(
     val title: String,
     val description: String,
-    val imageUrl: String,
-    val audioUrl: String,
-    val durationSeconds: Int,
-    val isActive: Boolean,
+    val imageUrl: Url,
+    val audioUrl: Url,
+    val durationSeconds: Seconds,
+    val visibility: RingtoneVisibilityDto,
     val isPremium: Boolean,
 )
 
@@ -64,10 +73,10 @@ data class CreateAdminRingtoneResponseDto(
 data class UpdateAdminRingtoneRequestDto(
     val title: String,
     val description: String,
-    val imageUrl: String,
-    val audioUrl: String,
-    val durationSeconds: Int,
-    val isActive: Boolean,
+    val imageUrl: Url,
+    val audioUrl: Url,
+    val durationSeconds: Seconds,
+    val visibility: RingtoneVisibilityDto,
     val isPremium: Boolean,
 )
 
@@ -94,9 +103,14 @@ data class AdminRingtoneClientListPreviewResponseDto(
 )
 
 @Serializable
-data class ToggleRingtoneActiveResponseDto(
+data class SetRingtoneVisibilityRequestDto(
+    val visibility: RingtoneVisibilityDto,
+)
+
+@Serializable
+data class SetRingtoneVisibilityResponseDto(
     val ringtoneId: String,
-    val isActive: Boolean,
+    val visibility: RingtoneVisibilityDto,
 )
 
 @Serializable
