@@ -28,6 +28,7 @@ Rules:
 - Keep descriptions short and factual.
 - Documentation must be updated in the same change set as the code, not postponed.
 - If no module documentation file exists in the affected area, create one when the change is important enough to require future orientation.
+- If PR/code review comments reveal a critical mistake, architectural pitfall, or recurring anti-pattern, do not limit the fix to code only. Record the lesson as a concrete rule in the relevant module-level `AGENTS.md` so the same class of mistake is less likely to be repeated.
 
 ## Testing Rules (Global)
 
