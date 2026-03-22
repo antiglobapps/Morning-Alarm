@@ -48,3 +48,6 @@ dist/
 # Server data
 server-data/
 xy-app/
+/.gradle-local
+/.gradle-user
+/.secrets
