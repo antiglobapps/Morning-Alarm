@@ -17,8 +17,9 @@ Read [AGENTS.md](AGENTS.md) at the start of each conversation and follow all rul
 
 ```
 Morning-Alarm/
-├── android/          — Android app (Kotlin, Jetpack Compose, AndroidX Navigation)
-├── ios/              — iOS app (Swift, SwiftUI, KMP integration via SKIE)
+├── mobile-apps/      — Mobile app roots and shared mobile architecture instructions
+│   ├── android-app/  — Android app (future root, Kotlin, Jetpack Compose, AndroidX Navigation)
+│   └── ios-app/      — iOS app (future root, Swift, SwiftUI, KMP integration via SKIE)
 ├── app-shared/       — Shared KMP module: business logic, ViewModels, state (commonMain/androidMain/iosMain)
 ├── shared/           — Shared DTOs, API contracts, constants (used by both app-shared and server)
 ├── server/           — Ktor backend server (modular monolith, ports & adapters)
@@ -32,6 +33,7 @@ Key topics covered in [AGENTS.md](AGENTS.md):
 - Agent behavior (language, comments, code style)
 - Kotlin Multiplatform (KMP) usage and best practices
 - Swift ↔ KMP bridge using SKIE library
+- Mobile app architecture source in `mobile-apps/AGENTS.md`
 - Server module architecture (see `server/AGENTS.md`)
 - UI Kit cross-platform components
 - Module-specific guidelines
@@ -44,9 +46,9 @@ Key topics covered in [AGENTS.md](AGENTS.md):
 ./gradlew :app-shared:build
 ./gradlew :app-shared:allTests
 
-# Android
-./gradlew :android:assembleDebug
-./gradlew :android:testDebugUnitTest
+# Mobile apps
+# Android and iOS app build commands will be added after the app projects
+# are scaffolded inside mobile-apps/android-app and mobile-apps/ios-app.
 
 # Server (dev mode — embedded H2, no PostgreSQL needed)
 ./gradlew :server:run
