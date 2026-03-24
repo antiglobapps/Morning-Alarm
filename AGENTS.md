@@ -61,67 +61,33 @@ Rules:
 ### Navigation
 3 bottom tabs: **Alarm** | **Sleep** | **Profile**
 
-## Kotlin Multiplatform (KMP) Usage and References
+## Mobile Tech Summary
 
-Detailed and up-to-date information about using **Kotlin Multiplatform (KMP)** must be taken from the official documentation and sample projects listed below.
+The future mobile applications use a native UI + shared logic stack:
+- Android: Kotlin + Jetpack Compose
+- iOS: Swift + SwiftUI
+- Shared mobile logic: Kotlin Multiplatform in `app-shared`
+- Swift interoperability with shared Kotlin: SKIE
 
-### Official Documentation
-- Kotlin Multiplatform – Get Started: https://kotlinlang.org/docs/multiplatform/get-started.html
-- Android Developers – Kotlin Multiplatform: https://developer.android.com/kotlin/multiplatform/
-
-### Sample Projects
-- Kotlin Multiplatform Samples: https://github.com/android/kotlin-multiplatform-samples/tree/main
-
-### Swift ↔ KMP Bridge (iOS Integration)
-
-The project uses the **SKIE** library for Swift ↔ KMP interoperability.
-
-SKIE provides:
-- Safer and more idiomatic Swift APIs for KMP code
-- Improved interoperability with Swift Concurrency (`async/await`)
-- Better mapping of Kotlin types to Swift
-- Reduced boilerplate when consuming shared logic from iOS
-
-#### SKIE Documentation
-- SKIE Features & Documentation: https://skie.touchlab.co/features/
-
-#### SKIE Source Code
-- SKIE GitHub Repository: https://github.com/touchlab/SKIE
-
-### Context7 Requirement
-When answering questions, explaining implementation details, or making architectural decisions related to **Kotlin Multiplatform** or **Swift ↔ KMP interoperability**, the AI agent **must use context7** to retrieve information from the sources listed above.
-
-Rules:
-- Always search context7 first for relevant sections in the provided documentation.
-- Base explanations strictly on the retrieved documentation or sample code.
-- Reference the specific documentation pages, features, or source modules used.
-- If the required information is not found in context7, explicitly state that it is not covered.
-
-### Reference Template
-The `xy-app/` directory contains a reference KMP project template with proven architecture patterns. Use it as a guide for:
-- Module structure and gradle configuration
-- ViewModel + Orbit MVI patterns
-- Koin DI setup
-- Navigation patterns (Android + iOS)
-- Server architecture (ports & adapters)
-
-**Do NOT modify `xy-app/` — it is read-only reference material.**
+Detailed mobile architecture, KMP references, Swift ↔ KMP rules, and `xy-app`
+reference-template usage are documented in:
+- `mobile-apps/AGENTS.md`
 
 ## Project Modules
 
 ### Module dependency graph
 ```
-android (Android app)
-  ↓ depends on
-app-shared (KMP library)
-  ↓ depends on
-shared (DTOs, API contracts)
-
-ios (iOS app)
-  ↓ depends on
-app-shared (iOS framework via SKIE)
-  ↓ depends on
-shared (iOS framework)
+mobile-apps (mobile application roots + shared mobile architecture rules)
+  ├─ android-app (Android app root)
+  │    ↓ depends on
+  │  app-shared (KMP library)
+  │    ↓ depends on
+  │  shared (DTOs, API contracts)
+  └─ ios-app (iOS app root)
+       ↓ depends on
+     app-shared (iOS framework via SKIE)
+       ↓ depends on
+     shared (iOS framework)
 
 server (Ktor backend)
   ↓ depends on
@@ -169,72 +135,53 @@ Purpose:
 Module-specific implementation and maintenance rules must be documented in:
 `desktop-admin/AGENTS.md`
 
-## UI Kit (Platform-Specific Components)
+### Mobile Apps module
+The future mobile application roots live in:
+`mobile-apps/`
 
-UI Kit is **NOT** cross-platform shared between Android and iOS. Each platform has its own platform-specific UI Kit implementation.
+Contents:
+- `mobile-apps/android-app/` — Android app root
+- `mobile-apps/ios-app/` — iOS app root
 
-### Purpose
-- Provide reusable UI components for each platform
-- Maintain consistent naming and component structure across platforms
-- Allow platform-specific customizations while keeping similar APIs
+Shared mobile architecture and organization rules are documented in:
+`mobile-apps/AGENTS.md`
 
-### Naming Convention
-- All components **must** use the `UiKit` prefix
-- Component names **must** be identical on both platforms (e.g., `UiKitButton`, `UiKitAlarmCard`)
-- File names **must** match component names
+### Android App module
+The future Android application root lives in:
+`mobile-apps/android-app/`
 
-### Structure
-- **Android**: Module `:uikit` at `android/uikit` (Jetpack Compose)
-- **iOS**: Directory `ios/ui-kit` (SwiftUI)
+Purpose:
+- Android-specific app bootstrap and entry points
+- Android navigation host and Compose screens
+- Android platform UI Kit and integrations
 
-### Divergence Policy
-- Components should have similar APIs and behavior across platforms
-- Platform-specific components are allowed when they address platform-specific UI patterns
-- Document any significant API differences between platforms in code comments
+Module-specific architecture and maintenance rules are documented in:
+`mobile-apps/android-app/AGENTS.md`
 
-## Architecture Patterns
+### iOS App module
+The future iOS application root lives in:
+`mobile-apps/ios-app/`
 
-### MVI (Model-View-Intent) with Orbit
-```
-BaseViewModel<STATE, SIDE_EFFECT>
-  → PlatformViewModel (extends androidx.lifecycle.ViewModel)
-  → ContainerHost<STATE, SIDE_EFFECT> (from Orbit)
+Purpose:
+- iOS-specific app bootstrap and entry points
+- SwiftUI navigation host and platform screens
+- iOS platform UI Kit and Swift ↔ KMP integration layer
 
-Key properties:
-- uiState: StateFlow<STATE>        — emits UI state changes
-- sideEffects: Flow<SIDE_EFFECT>   — one-time events (navigation, toasts)
-- intent { ... }                    — action handler block
-- reduce { ... }                    — state mutation
-- postSideEffect(...)              — emit side effects
-```
+Module-specific architecture and maintenance rules are documented in:
+`mobile-apps/ios-app/AGENTS.md`
 
-### State & Side Effect Pattern
-```kotlin
-sealed interface ViewState {
-    data object Loading : ViewState
-    data class Data(...) : ViewState
-    data class Error(val message: String) : ViewState
-}
+## Platform App Architecture
 
-sealed interface SideEffect {
-    sealed interface ViewEffect : SideEffect {
-        data class ShowMessage(val message: String) : ViewEffect
-    }
-    sealed interface Navigation : SideEffect {
-        data object Back : Navigation
-    }
-}
-```
+The shared source of truth for mobile application architecture, mirrored
+feature organization, and cross-platform naming rules is:
+- `mobile-apps/AGENTS.md`
 
-### DI — Koin
-- Feature modules register their dependencies in Koin modules
-- ViewModel factories via `koinViewModel` / `parametersOf`
-- iOS: Koin initialized in `KoinDependencies.kt` (iosMain)
+Platform-specific additions live in:
+- `mobile-apps/android-app/AGENTS.md`
+- `mobile-apps/ios-app/AGENTS.md`
 
-### Navigation
-- **Android:** Jetpack Compose Navigation with `@Serializable` route data classes
-- **iOS:** SwiftUI `NavigationStack` with route enum
-- Both use decoupled `Navigator` interfaces — ViewModel emits navigation SideEffects
+Keep shared mobile rules in `mobile-apps/AGENTS.md` and reserve platform
+module files for Android- or iOS-specific details.
 
 ## Package Naming
 
@@ -243,3 +190,4 @@ Base package: `com.morningalarm`
 - App shared: `com.morningalarm.feature.*`, `com.morningalarm.data.*`, `com.morningalarm.di.*`
 - Server: `com.morningalarm.server.*`
 - Shared DTOs: `com.morningalarm.dto.*`, `com.morningalarm.api.*`
+- Android app: `com.morningalarm.android.*`
