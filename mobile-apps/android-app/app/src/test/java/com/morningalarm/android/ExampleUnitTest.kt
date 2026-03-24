@@ -1,4 +1,4 @@
-package com.antik.morningalarm
+package com.morningalarm.android
 
 import org.junit.Test
 

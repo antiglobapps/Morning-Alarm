@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.antik.morningalarm"
+    namespace = "com.morningalarm.android"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -11,7 +11,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.antik.morningalarm"
+        applicationId = "com.morningalarm.android"
         minSdk = 30
         targetSdk = 36
         versionCode = 1

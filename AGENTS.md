@@ -190,3 +190,4 @@ Base package: `com.morningalarm`
 - App shared: `com.morningalarm.feature.*`, `com.morningalarm.data.*`, `com.morningalarm.di.*`
 - Server: `com.morningalarm.server.*`
 - Shared DTOs: `com.morningalarm.dto.*`, `com.morningalarm.api.*`
+- Android app: `com.morningalarm.android.*`
