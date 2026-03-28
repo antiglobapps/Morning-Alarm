@@ -331,7 +331,7 @@ export default function DesignSystemScreen() {
           <Stack spacing={2}>
             <DsAlarmCard
               time="07:30"
-              label="Soft Sunrise"
+              melody="Soft Sunrise"
               days={['Mo', 'Tu', 'We', 'Th', 'Fr']}
               enabled={true}
               onToggle={() => {}}

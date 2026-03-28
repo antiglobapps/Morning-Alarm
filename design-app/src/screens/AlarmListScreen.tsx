@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Box, Typography, Stack } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { DsAlarmCard, DsFab } from '../ds';
-import { spacing } from '../tokens';
+import { DsAlarmCard, DsAddAlarmCard } from '../ds';
+import { cssVar, v, spacing } from '../tokens';
 
 interface Alarm {
   id: string;
   time: string;
-  label: string;
+  melody: string;
   days: string[];
   enabled: boolean;
 }
@@ -16,21 +16,21 @@ const MOCK_ALARMS: Alarm[] = [
   {
     id: '1',
     time: '06:30',
-    label: 'Soft Sunrise',
+    melody: 'Soft Sunrise',
     days: ['Mo', 'Tu', 'We', 'Th', 'Fr'],
     enabled: true,
   },
   {
     id: '2',
     time: '08:00',
-    label: 'Forest Calm',
+    melody: 'Forest Calm',
     days: ['Sa', 'Su'],
     enabled: false,
   },
   {
     id: '3',
     time: '07:15',
-    label: 'Energy Morning',
+    melody: 'Energy Morning',
     days: ['Mo', 'We', 'Fr'],
     enabled: true,
   },
@@ -43,16 +43,34 @@ function getGreeting(): string {
   return 'Good evening';
 }
 
-function getCurrentTime(): string {
-  return new Date().toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-}
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAY_ABBR_TO_INDEX: Record<string, number> = { Su: 0, Mo: 1, Tu: 2, We: 3, Th: 4, Fr: 5, Sa: 6 };
 
 function getNextAlarm(alarms: Alarm[]): Alarm | undefined {
   return alarms.find((a) => a.enabled);
+}
+
+function getNextAlarmDay(alarm: Alarm): string {
+  const today = new Date().getDay();
+  const alarmDayIndices = alarm.days.map((d) => DAY_ABBR_TO_INDEX[d]).sort((a, b) => a - b);
+  const next = alarmDayIndices.find((d) => d > today);
+  const nextDay = next !== undefined ? next : alarmDayIndices[0];
+  const diff = (nextDay - today + 7) % 7;
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Tomorrow';
+  return DAY_NAMES[nextDay];
+}
+
+function getTimeUntil(timeStr: string): string {
+  const [h, m] = timeStr.split(':').map(Number);
+  const now = new Date();
+  const target = new Date();
+  target.setHours(h, m, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+  const diffMs = target.getTime() - now.getTime();
+  const hours = Math.floor(diffMs / 3600000);
+  const minutes = Math.floor((diffMs % 3600000) / 60000);
+  return `${hours}h ${minutes}m`;
 }
 
 export default function AlarmListScreen() {
@@ -67,29 +85,38 @@ export default function AlarmListScreen() {
   };
 
   return (
-    <Box sx={{ px: spacing.screenHorizontal, pt: spacing.screenTop }}>
-      {/* Current time — displayMedium: large expressive clock */}
-      <Typography variant="displayMedium" sx={{ mb: 0.5 }}>
-        {getCurrentTime()}
-      </Typography>
-      {/* Greeting — titleLarge: secondary screen label */}
-      <Typography variant="titleLarge" color="text.secondary" sx={{ mb: spacing.sectionSpacing }}>
-        {getGreeting()} ☀
-      </Typography>
-
-      {/* Next alarm indicator */}
-      {nextAlarm && (
-        <Box sx={{ mb: spacing.sectionSpacing }}>
-          {/* labelMedium: small caption */}
-          <Typography variant="labelMedium" color="text.secondary">
-            Next alarm
+    <Box sx={{ px: spacing.screenHorizontal, pt: 0 }}>
+      {/* Centered Calm Minimal header */}
+      <Box sx={{ textAlign: 'center', pt: '28px', pb: '24px' }}>
+        <Typography sx={{
+          fontSize: 26, fontWeight: 300, fontStyle: 'italic',
+          color: v(cssVar.colorOnSurface),
+        }}>
+          {getGreeting()}
+        </Typography>
+        <Box sx={{
+          width: 40, height: '0.5px',
+          bgcolor: v(cssVar.colorOutlineVariant),
+          mx: 'auto', my: '10px',
+        }} />
+        {nextAlarm ? (
+          <>
+            <Typography sx={{ fontSize: 13, fontWeight: 400, color: v(cssVar.colorOnSurfaceVariant) }}>
+              Next alarm in{' '}
+              <Box component="span" sx={{ fontWeight: 600 }}>
+                {getTimeUntil(nextAlarm.time)}
+              </Box>
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: v(cssVar.colorOutline), mt: '3px' }}>
+              {nextAlarm.time} · {getNextAlarmDay(nextAlarm)}
+            </Typography>
+          </>
+        ) : (
+          <Typography sx={{ fontSize: 13, color: v(cssVar.colorOutline) }}>
+            No active alarms
           </Typography>
-          {/* headlineSmall: prominent next alarm time */}
-          <Typography variant="headlineSmall" color="primary.main">
-            {nextAlarm.time} · {nextAlarm.days.length === 7 ? 'Every day' : nextAlarm.days.join(' ')}
-          </Typography>
-        </Box>
-      )}
+        )}
+      </Box>
 
       {/* Alarm cards */}
       <Stack spacing={spacing.stackGap}>
@@ -97,24 +124,15 @@ export default function AlarmListScreen() {
           <DsAlarmCard
             key={alarm.id}
             time={alarm.time}
-            label={alarm.label}
+            melody={alarm.melody}
             days={alarm.days}
             enabled={alarm.enabled}
             onToggle={() => toggleAlarm(alarm.id)}
             onClick={() => navigate(`/alarm/${alarm.id}`)}
           />
         ))}
+        <DsAddAlarmCard onClick={() => navigate('/alarm/new')} />
       </Stack>
-
-      {/* FAB */}
-      <DsFab
-        onClick={() => navigate('/alarm/new')}
-        sx={{
-          position: 'fixed',
-          bottom: 96,
-          right: 'calc(50% - 195px)',
-        }}
-      />
     </Box>
   );
 }

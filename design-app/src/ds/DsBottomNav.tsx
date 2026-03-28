@@ -88,11 +88,14 @@ import { elevation } from '../tokens';
 //   .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
 //   .padding(.horizontal, 16).padding(.bottom, 12)
 
-// Semi-transparent glass backgrounds derived from theme surface colors
-const GLASS_BG_MORNING = 'rgba(255, 249, 242, 0.72)'; // #FFF9F2 at 72%
+// Glass backgrounds — morning uses calm minimal solid surface, night keeps translucent
+const GLASS_BG_MORNING = 'rgba(251, 247, 242, 0.92)'; // #FBF7F2 at 92%
 const GLASS_BG_NIGHT   = 'rgba(21, 28, 51, 0.72)';    // #151C33 at 72%
-const GLASS_BORDER_MORNING = 'rgba(255, 255, 255, 0.35)';
+const GLASS_BORDER_MORNING = '#E5DBD1';
 const GLASS_BORDER_NIGHT   = 'rgba(255, 255, 255, 0.08)';
+// Calm Minimal nav colors — selected shows via color only, no pill
+const NAV_SELECTED_MORNING   = '#B98349';
+const NAV_UNSELECTED_MORNING = '#5F5750';
 
 interface TabDef {
   label: string;
@@ -137,7 +140,7 @@ interface DsBottomNavProps {
 
 export default function DsBottomNav({ currentPath, onNavigate, preview = false }: DsBottomNavProps) {
   const theme = useTheme();
-  const isMorning = theme.palette.background.default === '#FFF9F2';
+  const isMorning = theme.palette.mode === 'light';
   const glassBg = isMorning ? GLASS_BG_MORNING : GLASS_BG_NIGHT;
   const glassBorder = isMorning ? GLASS_BORDER_MORNING : GLASS_BORDER_NIGHT;
 
@@ -148,8 +151,7 @@ export default function DsBottomNav({ currentPath, onNavigate, preview = false }
     bgcolor: glassBg,
     backdropFilter: 'blur(24px)',
     WebkitBackdropFilter: 'blur(24px)',
-    border: '0.5px solid',
-    borderColor: glassBorder,
+    border: `1px solid ${glassBorder}`,
     boxShadow: elevation.level3,
   };
 
@@ -159,12 +161,11 @@ export default function DsBottomNav({ currentPath, onNavigate, preview = false }
         width: '100%',
         ...glassStyles,
       } : {
-        position:  'fixed',
-        bottom:    12,
-        left:      '50%',
-        transform: 'translateX(-50%)',
         width:     'calc(100% - 32px)',
-        maxWidth:  398,
+        maxWidth:  361,
+        mx:        'auto',
+        mb:        '12px',
+        flexShrink: 0,
         zIndex:    10,
         ...glassStyles,
       }}
@@ -185,52 +186,32 @@ export default function DsBottomNav({ currentPath, onNavigate, preview = false }
               key={tab.path}
               onClick={() => onNavigate(tab.path)}
               sx={{
-                // Tab item — position: relative so the pill is absolutely positioned behind content
-                position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '2px',
+                gap: '3px',
                 cursor: 'pointer',
                 flex: 1,
                 py: 0.75,
-                color: selected ? 'primary.main' : 'text.secondary',
+                color: isMorning
+                  ? (selected ? NAV_SELECTED_MORNING : NAV_UNSELECTED_MORNING)
+                  : (selected ? 'primary.main' : 'text.secondary'),
                 transition: 'color 200ms ease',
-                '&:hover': {
-                  color: selected ? 'primary.main' : 'text.primary',
-                },
-                // Remove tap highlight on mobile
                 WebkitTapHighlightColor: 'transparent',
                 userSelect: 'none',
               }}
             >
-              {/* iOS 26 Liquid Glass style — capsule covers entire tab area (icon + label) */}
-              <Box
-                sx={{
-                  position: 'absolute',
-                  inset: 2,
-                  borderRadius: '16px',
-                  bgcolor: 'primaryContainer.main',
-                  background: (theme) => theme.palette.mode === 'dark'
-                    ? theme.palette.primary?.dark ?? '#3E3E93'
-                    : '#FFDDB3',
-                  opacity: selected ? 1 : 0,
-                  transition: 'opacity 200ms ease',
-                }}
-              />
-              {/* Icon — z-index above pill */}
-              <Box sx={{ position: 'relative', zIndex: 1, display: 'flex' }}>
+              <Box sx={{ display: 'flex' }}>
                 {selected ? tab.filledIcon : tab.outlinedIcon}
               </Box>
               <Typography
                 variant="labelSmall"
                 sx={{
-                  position: 'relative',
-                  zIndex: 1,
                   color: 'inherit',
                   lineHeight: 1,
                   fontSize: '0.65rem',
+                  fontWeight: 500,
                 }}
               >
                 {tab.label}

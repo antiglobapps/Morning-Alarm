@@ -52,54 +52,54 @@ export interface MD3ColorScheme {
   surfaceTint: string;
 }
 
-// Morning — light scheme
-// Source primary: warm orange (#FFB86B → T40 for accessibility on white)
+// Morning — light scheme (Calm Minimal palette)
+// Muted bronze/sand accent, warm cream surfaces, soft and premium feel.
 const morning: MD3ColorScheme = {
-  // Primary: warm orange tonal family
-  primary:              '#C47700', // T40 — 4.5:1 contrast on white
-  onPrimary:            '#FFFFFF', // T100
-  primaryContainer:     '#FFDDB3', // T90 — light peach
-  onPrimaryContainer:   '#2C1600', // T10 — near-black brown
+  // Primary: muted bronze
+  primary:              '#C7975D',
+  onPrimary:            '#FFFFFF',
+  primaryContainer:     '#EED9C1', // soft sand
+  onPrimaryContainer:   '#4A4036',
 
-  // Secondary: muted warm brown (analogous to primary)
-  secondary:            '#6F5B40', // T40
-  onSecondary:          '#FFFFFF', // T100
-  secondaryContainer:   '#FBDEBE', // T90 — warm cream
-  onSecondaryContainer: '#271904', // T10
+  // Secondary: warm brown
+  secondary:            '#6E5740',
+  onSecondary:          '#FFFFFF',
+  secondaryContainer:   '#EADCCB', // warm beige
+  onSecondaryContainer: '#6E5740',
 
-  // Tertiary: muted sage green (complementary accent)
-  tertiary:             '#51643F', // T40
-  onTertiary:           '#FFFFFF', // T100
-  tertiaryContainer:    '#D4EABB', // T90 — pale green
-  onTertiaryContainer:  '#102004', // T10
+  // Tertiary: muted sage green (kept for compatibility)
+  tertiary:             '#51643F',
+  onTertiary:           '#FFFFFF',
+  tertiaryContainer:    '#D4EABB',
+  onTertiaryContainer:  '#102004',
 
   // Error: MD3 standard
-  error:                '#BA1A1A', // T40
+  error:                '#BA1A1A',
   onError:              '#FFFFFF',
-  errorContainer:       '#FFDAD6', // T90
-  onErrorContainer:     '#410002', // T10
+  errorContainer:       '#FFDAD6',
+  onErrorContainer:     '#410002',
 
-  // Background / Surface
-  background:           '#FFF9F2', // T99 warm-white (brand background)
-  onBackground:         '#1F1B16', // T10
-  surface:              '#FFF9F2', // same as background in light mode
-  onSurface:            '#1F1B16',
-  surfaceVariant:       '#F0E0CF', // T90 warm neutral
-  onSurfaceVariant:     '#50453A', // T40 warm neutral
+  // Background / Surface — warm cream
+  background:           '#F5F1EC',
+  onBackground:         '#3F3933',
+  surface:              '#FBF7F2',
+  onSurface:            '#3F3933',
+  surfaceVariant:       '#F2ECE6',
+  onSurfaceVariant:     '#6D655D',
 
   // Utility
-  outline:              '#82736A', // T50 neutral-variant
-  outlineVariant:       '#D5C4BA', // T80 neutral-variant
+  outline:              '#A89F96',
+  outlineVariant:       '#E6DDD4',
   shadow:               '#000000',
   scrim:                '#000000',
 
   // Inverse (used for snackbars, tooltips)
-  inverseSurface:       '#352F2A', // T20
-  inverseOnSurface:     '#FAF0E8', // T95
-  inversePrimary:       '#FFB86B', // T80 — original brand orange becomes inverse primary
+  inverseSurface:       '#352F2A',
+  inverseOnSurface:     '#FAF0E8',
+  inversePrimary:       '#FFB86B',
 
   // Tonal surface tint = primary
-  surfaceTint:          '#C47700',
+  surfaceTint:          '#C7975D',
 };
 
 // Night — dark scheme
@@ -167,6 +167,9 @@ export const tonalOverlay = {
 } as const;
 
 export const colors = { morning, night } as const;
+
+// Calm Minimal vertical gradient for morning theme background
+export const morningGradient = 'linear-gradient(180deg, #F5F1EC 0%, #F2ECE6 50%, #EEE7DF 100%)';
 
 // Ringing screen — fixed white-on-image overlay palette (not part of MD3 scheme)
 // Used only on the RingingScreen which always renders over a full-bleed photo.

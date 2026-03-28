@@ -20,9 +20,7 @@ export default function RingingScreen() {
     <Box
       sx={{
         position: 'relative',
-        minHeight: '100vh',
-        maxWidth: 430,
-        mx: 'auto',
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',

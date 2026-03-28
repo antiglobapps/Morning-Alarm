@@ -4,6 +4,7 @@ export { default as DsScreenHeader } from './DsScreenHeader';
 export { default as DsDayChipRow } from './DsDayChipRow';
 export { default as DsMoodChipRow } from './DsMoodChipRow';
 export { default as DsAlarmCard } from './DsAlarmCard';
+export { default as DsAddAlarmCard } from './DsAddAlarmCard';
 export { default as DsSleepCard } from './DsSleepCard';
 export { default as DsSleepTimerCard } from './DsSleepTimerCard';
 export { default as DsPremiumCard } from './DsPremiumCard';

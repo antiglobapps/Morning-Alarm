@@ -1,6 +1,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Box } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 import { DsBottomNav } from '../ds';
+import { morningGradient } from '../tokens/colors';
 import type { ThemeMode } from '../App';
 
 interface AppShellProps {
@@ -11,23 +12,26 @@ interface AppShellProps {
 export default function AppShell({ }: AppShellProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const theme = useTheme();
+  const isMorning = theme.palette.mode === 'light';
 
   return (
     <Box
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        minHeight: '100vh',
-        maxWidth: 430,
-        mx: 'auto',
-        bgcolor: 'background.default',
-        position: 'relative',
+        height: '100%',
+        ...(isMorning
+          ? { background: morningGradient }
+          : { bgcolor: 'background.default' }),
       }}
     >
-      <Box sx={{ flex: 1, overflow: 'auto', pb: '88px' }}>
+      {/* Scrollable content */}
+      <Box sx={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
         <Outlet />
       </Box>
 
+      {/* Bottom navigation — always at bottom */}
       <DsBottomNav currentPath={location.pathname} onNavigate={(path) => navigate(path)} />
     </Box>
   );
