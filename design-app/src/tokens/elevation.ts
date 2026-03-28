@@ -39,16 +39,16 @@ export interface MD3Elevation {
 // MD3 standard elevation shadows (theme-independent — shadow color is always #000)
 export const elevation: MD3Elevation = {
   level0: 'none',
-  // 1dp — cards at rest, list items
-  level1: '0px 1px 2px rgba(0,0,0,0.3), 0px 1px 3px 1px rgba(0,0,0,0.15)',
+  // 1dp — cards at rest (Calm Minimal: warm soft shadow)
+  level1: '0 2px 8px rgba(120,100,80,0.06)',
   // 3dp — filled cards hovered, navigation drawer
-  level2: '0px 1px 2px rgba(0,0,0,0.3), 0px 2px 6px 2px rgba(0,0,0,0.15)',
-  // 6dp — FAB, dialogs, menus
-  level3: '0px 4px 8px 3px rgba(0,0,0,0.15), 0px 1px 3px rgba(0,0,0,0.3)',
+  level2: '0 2px 10px rgba(120,100,80,0.08)',
+  // 6dp — FAB, bottom nav (Calm Minimal: subtle float)
+  level3: '0 2px 12px rgba(120,100,80,0.08)',
   // 8dp — modal bottom sheets
-  level4: '0px 6px 10px 4px rgba(0,0,0,0.15), 0px 2px 3px rgba(0,0,0,0.3)',
+  level4: '0 4px 16px rgba(120,100,80,0.10)',
   // 12dp — navigation bar (top app bar scrolled)
-  level5: '0px 8px 12px 6px rgba(0,0,0,0.15), 0px 4px 4px rgba(0,0,0,0.3)',
+  level5: '0 6px 20px rgba(120,100,80,0.12)',
 };
 
 // Component → elevation level mapping

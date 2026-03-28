@@ -262,7 +262,7 @@ export default function createAppTheme(variant: ThemeVariant) {
             '&.Mui-checked': {
               transform: 'translateX(20px)',
               '& .MuiSwitch-thumb': {
-                backgroundColor: c.onPrimary,
+                backgroundColor: variant === 'morning' ? '#F9F5F0' : c.onPrimary,
                 transform:       'scale(1)',
               },
               '& + .MuiSwitch-track': {
@@ -275,15 +275,15 @@ export default function createAppTheme(variant: ThemeVariant) {
           thumb: {
             width:           24,
             height:          24,
-            backgroundColor: c.outline,
+            backgroundColor: variant === 'morning' ? '#F2ECE6' : c.outline,
             boxShadow:       'none',
             transform:       'scale(0.667)', // 16/24 — visual 16dp when off
             transition:      'transform 200ms cubic-bezier(0.4, 0, 0.2, 1), background-color 200ms cubic-bezier(0.4, 0, 0.2, 1)',
           },
           track: {
             borderRadius:    shape.full,
-            backgroundColor: c.surfaceVariant,
-            border:          `2px solid ${c.outline}`,
+            backgroundColor: variant === 'morning' ? '#D8CEC4' : c.surfaceVariant,
+            border:          variant === 'morning' ? 'none' : `2px solid ${c.outline}`,
             opacity:         1,
             transition:      'background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms cubic-bezier(0.4, 0, 0.2, 1)',
           },

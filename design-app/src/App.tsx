@@ -11,6 +11,10 @@ import RingingScreen from './screens/RingingScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import DesignSystemScreen from './screens/DesignSystemScreen';
+import DraftCardsScreen from './screens/DraftCardsScreen';
+import DraftHeadersScreen from './screens/DraftHeadersScreen';
+import DraftAddCardScreen from './screens/DraftAddCardScreen';
+import DraftCalmAlarmScreen from './screens/DraftCalmAlarmScreen';
 import type { ThemeVariant } from './tokens';
 
 export type ThemeMode = 'morning' | 'night' | 'auto';
@@ -46,6 +50,10 @@ export default function App() {
           {/* Standalone screens — no shell */}
           <Route path="/ringing" element={<RingingScreen />} />
           <Route path="/design-system" element={<DesignSystemScreen />} />
+          <Route path="/drafts/cards" element={<DraftCardsScreen />} />
+          <Route path="/drafts/headers" element={<DraftHeadersScreen />} />
+          <Route path="/drafts/add-card" element={<DraftAddCardScreen />} />
+          <Route path="/drafts/calm-alarm" element={<DraftCalmAlarmScreen />} />
 
           {/* Main app with bottom navigation */}
           <Route element={<AppShell themeMode={themeMode} onThemeChange={setThemeMode} />}>

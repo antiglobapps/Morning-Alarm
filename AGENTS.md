@@ -138,6 +138,18 @@ design-app (Web prototype)
   — standalone, no Kotlin dependencies
 ```
 
+### Design App module
+The UI prototype lives in `design-app/` and is the **single source of truth for design**.
+
+Purpose:
+- web prototype of all MVP screens
+- source of design tokens (colors, shapes, typography, spacing)
+- reference for AI agents implementing screens on Android and iOS
+
+Design flow: `design-app (web)` → AI agent reads live UI → implements in Android (Compose) / iOS (SwiftUI).
+
+Detailed instructions: `design-app/AGENTS.md`
+
 ### Server module
 All server-specific architecture and maintenance instructions are documented in:
 `server/AGENTS.md`
